@@ -28,5 +28,5 @@ jobs:
       - run: npm test
 
       - name: Validate multiplayer server container
-        working-directory: .
+        working-directory: ${{ github.workspace }}
         run: docker build -f Dockerfile.server -t tank-battle-server:test .

@@ -182,6 +182,7 @@ const multiplayer = new MultiplayerClient({
   onState: state => {
     const count = state.players?.length ?? 0;
     isMyNetworkTurn = state.currentPlayerId === multiplayer.playerId;
+    combat.onlineMode = Boolean(multiplayer.playerId);
     networkTurnDeadline = state.turnDeadline || 0;
     if (multiplayer.playerId) {
       const me = (state.players || []).find(p => p.id === multiplayer.playerId);

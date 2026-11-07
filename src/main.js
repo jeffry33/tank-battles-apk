@@ -274,6 +274,7 @@ function spawnNetworkShot(data) {
     elapsed: 0,
     duration: Math.max(0.04, data.impact.flightSeconds || 0.04),
     impact: data.impact,
+    guided: shot.weapon === 'guided',
     lastTrailAt: 0
   });
 }
@@ -525,8 +526,16 @@ app.on('update', dt => {
     const projectile = networkProjectiles[i];
     projectile.elapsed += dt;
     const t = Math.min(projectile.elapsed, projectile.duration);
-    const position = projectile.origin.clone().add(projectile.velocity.clone().mulScalar(t));
-    position.y -= 0.5 * 9.81 * t * t;
+    let position;
+    if (projectile.guided) {
+      const progress = Math.min(1, t / projectile.duration);
+      const target = new pc.Vec3(projectile.impact.x, projectile.impact.y, projectile.impact.z);
+      position = projectile.origin.clone().lerp(target, progress);
+      position.y += Math.sin(progress * Math.PI) * Math.max(2.5, projectile.origin.distance(target) * 0.12);
+    } else {
+      position = projectile.origin.clone().add(projectile.velocity.clone().mulScalar(t));
+      position.y -= 0.5 * 9.81 * t * t;
+    }
     if (projectile.elapsed - projectile.lastTrailAt >= 0.055 && projectile.elapsed < projectile.duration) {
       projectile.lastTrailAt = projectile.elapsed;
       const puff = new pc.Entity('Projectile smoke trail');

@@ -50,9 +50,24 @@ export class MatchState {
     if (!this.hostId) this.hostId = id;
     this.players.set(id, {
       id, displayName: String(displayName).slice(0, 20), team,
-      hp: 100, alive: true, landed: false,
+      hp: 100, alive: true, landed: false, connected: true, disconnectedAt: null,
       x: spawn.x, z: spawn.z, yaw: 0, movedThisTurn: 0
     });
+    return this.snapshot();
+  }
+
+  markDisconnected(id, now = Date.now()) {
+    const player = this.requirePlayer(id);
+    player.connected = false;
+    player.disconnectedAt = now;
+    return this.snapshot();
+  }
+
+  reconnectPlayer(id) {
+    const player = this.requirePlayer(id);
+    if (!player.alive || this.status === 'finished') throw new Error('Player can no longer rejoin this match');
+    player.connected = true;
+    player.disconnectedAt = null;
     return this.snapshot();
   }
 

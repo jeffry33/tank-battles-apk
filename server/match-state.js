@@ -131,8 +131,11 @@ export class MatchState {
     const radius = validated.weapon === 'heavy' ? 5.5 : validated.weapon === 'cluster' ? 4.8 : validated.weapon === 'guided' ? 4.5 : 4;
     const baseDamage = validated.weapon === 'heavy' ? 42 : validated.weapon === 'cluster' ? 26 : validated.weapon === 'guided' ? 34 : 30;
     const impacts = [];
+    const shooterTeam = shooter.team;
     for (const target of this.players.values()) {
-      if (!target.alive) continue;
+      if (!target.alive || target.id === shooter.id) continue;
+      // Team Battle disables friendly fire. FFA has no team restriction.
+      if (this.mode === MATCH_RULES.modes.TEAMS && target.team === shooterTeam) continue;
       const distance = Math.hypot(target.x - x, target.z - z);
       if (distance <= radius) {
         const damage = Math.max(0, Math.round(baseDamage * (1 - distance / (radius * 1.5))));
@@ -197,13 +200,17 @@ export class MatchState {
 
   isMatchOver() {
     const alive = [...this.players.values()].filter(p => p.alive);
-    if (this.mode === MATCH_RULES.modes.TEAMS) return new Set(alive.map(p => p.team)).size <= 1;
+    if (this.mode === MATCH_RULES.modes.TEAMS) {
+      const teamsInitiallyPresent = new Set([...this.players.values()].map(p => p.team));
+      const livingTeams = new Set(alive.map(p => p.team));
+      return livingTeams.size <= 1 || alive.length === 0 || teamsInitiallyPresent.size < 2;
+    }
     return alive.length <= 1;
   }
 
   finishMatch() {
     const alive = [...this.players.values()].filter(p => p.alive);
-    this.winner = this.mode === MATCH_RULES.modes.TEAMS ? (alive[0]?.team ?? null) : (alive[0]?.id ?? null);
+    this.winner = alive.length === 0 ? null : this.mode === MATCH_RULES.modes.TEAMS ? (alive[0]?.team ?? null) : (alive[0]?.id ?? null);
     this.status = 'finished';
   }
 

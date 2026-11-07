@@ -172,6 +172,11 @@ document.getElementById('message').textContent='TANK BATTLE · Visual foundation
 const networkStatus = document.getElementById('message');
 const networkProjectiles = [];
 const networkExplosions = [];
+const networkTrailPuffs = [];
+const networkTrailMaterial = material([0.32, 0.34, 0.33], 0, 0.12);
+networkTrailMaterial.opacity = 0.52;
+networkTrailMaterial.blendType = pc.BLEND_NORMAL;
+networkTrailMaterial.update();
 function spawnNetworkShot(data) {
   if (!data?.impact || !data?.shot || !data?.state) return;
   const shooter = (data.state.players || []).find(player => player.id === data.playerId);
@@ -199,7 +204,8 @@ function spawnNetworkShot(data) {
     velocity,
     elapsed: 0,
     duration: Math.max(0.04, data.impact.flightSeconds || 0.04),
-    impact: data.impact
+    impact: data.impact,
+    lastTrailAt: 0
   });
 }
 function spawnNetworkExplosion(position, radius) {
@@ -360,12 +366,31 @@ app.on('update', dt => {
     const t = Math.min(projectile.elapsed, projectile.duration);
     const position = projectile.origin.clone().add(projectile.velocity.clone().mulScalar(t));
     position.y -= 0.5 * 9.81 * t * t;
+    if (projectile.elapsed - projectile.lastTrailAt >= 0.055 && projectile.elapsed < projectile.duration) {
+      projectile.lastTrailAt = projectile.elapsed;
+      const puff = new pc.Entity('Projectile smoke trail');
+      puff.addComponent('render', { type: 'sphere', material: networkTrailMaterial });
+      puff.setPosition(position);
+      puff.setLocalScale(0.18, 0.18, 0.18);
+      app.root.addChild(puff);
+      networkTrailPuffs.push({ entity: puff, life: 0.42, duration: 0.42 });
+    }
     if (projectile.elapsed >= projectile.duration) {
       projectile.entity.destroy();
       spawnNetworkExplosion(projectile.impact, projectile.impact.radius);
       networkProjectiles.splice(i, 1);
     } else {
       projectile.entity.setPosition(position);
+    }
+  }
+  for (let i = networkTrailPuffs.length - 1; i >= 0; i--) {
+    const puff = networkTrailPuffs[i];
+    puff.life -= dt;
+    const fade = Math.max(0, puff.life / puff.duration);
+    puff.entity.setLocalScale(0.12 + (1 - fade) * 0.38, 0.12 + (1 - fade) * 0.38, 0.12 + (1 - fade) * 0.38);
+    if (puff.life <= 0) {
+      puff.entity.destroy();
+      networkTrailPuffs.splice(i, 1);
     }
   }
   for (let i = networkExplosions.length - 1; i >= 0; i--) {

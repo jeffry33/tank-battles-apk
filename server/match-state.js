@@ -158,6 +158,21 @@ export class MatchState {
     return this.snapshot();
   }
 
+  tick(now = Date.now()) {
+    if (this.status === 'deploying' && now >= this.turnDeadline) {
+      for (const player of this.players.values()) {
+        if (!player.landed) player.landed = true; // Keep the assigned safe spawn as timeout fallback.
+      }
+      this.beginCombat(now);
+      return { event: 'deployment-timeout', state: this.snapshot() };
+    }
+    if (this.status === 'combat' && now >= this.turnDeadline) {
+      this.advanceTurn(now);
+      return { event: 'turn-timeout', state: this.snapshot() };
+    }
+    return null;
+  }
+
   skipExpiredTurn(now = Date.now()) {
     if (this.status !== 'combat' || now < this.turnDeadline) return false;
     this.advanceTurn(now);

@@ -14,7 +14,7 @@ npm start
 
 Default port: 2567. Set `PORT` on the hosting platform if required.
 
-## Client messages
+## Lobby and match start\n\nThe first player joining a room becomes its host. Only that host can start deployment, and at least two players must be present. The HUD exposes Free For All and Team Battle (2v2) room modes and displays room occupancy/host status. This is a private-room foundation, not automatic matchmaking.\n\n## Client messages
 
 - `{ "type":"join", "roomId":"room-01", "mode":"free-for-all", "displayName":"Player" }`
 - `{ "type":"start-deployment" }`

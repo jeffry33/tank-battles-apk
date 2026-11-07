@@ -167,6 +167,8 @@ document.getElementById('message').textContent='TANK BATTLE · Visual foundation
 // Optional network integration. Enter the publicly hosted WebSocket URL on the HUD.
 const networkStatus = document.getElementById('message');
 const remoteTanks = new Map();
+const parachuteRigs = new Map();
+let deploymentStartAt = 0;
 let isMyNetworkTurn = false;
 let networkTurnDeadline = 0;
 const multiplayer = new MultiplayerClient({
@@ -175,6 +177,37 @@ const multiplayer = new MultiplayerClient({
     const count = state.players?.length ?? 0;
     isMyNetworkTurn = state.currentPlayerId === multiplayer.playerId;
     networkTurnDeadline = state.turnDeadline || 0;
+    if (state.status === 'deploying' && !deploymentStartAt) deploymentStartAt = Date.now();
+    if (state.status !== 'deploying') deploymentStartAt = 0;
+    if (state.status === 'deploying') {
+      for (const player of (state.players || [])) {
+        if (parachuteRigs.has(player.id)) continue;
+        const rig = new pc.Entity('Parachute rig ' + player.displayName);
+        const canopy = new pc.Entity('Parachute canopy');
+        canopy.addComponent('render', { type: 'sphere', material: material([0.82,0.12,0.08],0,0.25) });
+        canopy.setLocalScale(4.2,0.55,2.2);
+        canopy.setLocalPosition(0,5.8,0);
+        rig.addChild(canopy);
+        const tankProxy = new pc.Entity('Airborne tank');
+        tankProxy.addComponent('render', { type: 'box', material: material([0.24,0.29,0.19],0.2,0.3) });
+        tankProxy.setLocalScale(2.1,0.8,3);
+        tankProxy.setLocalPosition(0,1.2,0);
+        rig.addChild(tankProxy);
+        const ropeMat = material([0.85,0.85,0.8],0,0.2);
+        for (const side of [-1,1]) {
+          const rope = new pc.Entity('Parachute line');
+          rope.addComponent('render',{type:'cylinder',material:ropeMat});
+          rope.setLocalScale(0.035,2.3,0.035);
+          rope.setLocalPosition(side*0.7,3.3,0);
+          rig.addChild(rope);
+        }
+        app.root.addChild(rig);
+        parachuteRigs.set(player.id,rig);
+      }
+    } else {
+      for (const rig of parachuteRigs.values()) rig.destroy();
+      parachuteRigs.clear();
+    }
     const turn = isMyNetworkTurn ? 'YOUR TURN' : 'OPPONENT TURN';
     const lobby = document.getElementById('lobby-status');
     if (lobby) {
@@ -238,4 +271,23 @@ document.getElementById('fire')?.addEventListener('click', () => {
   const power = Number(document.getElementById('power')?.value || 70);
   const weapon = document.getElementById('weapon')?.value || 'standard';
   multiplayer.shoot({ yaw: turretYaw, elevation, power, weapon });
+});
+
+document.getElementById('start-deployment')?.insertAdjacentHTML('afterend',
+  '<button id="land-tank" style="padding:7px;background:#315b43;color:white;border:1px solid #9fc7a9;border-radius:5px">LAND</button>');
+document.getElementById('land-tank')?.addEventListener('click', () => {
+  const px = tank.getPosition().x;
+  const pz = tank.getPosition().z;
+  multiplayer.land(px, pz);
+});
+app.on('update', () => {
+  if (!parachuteRigs.size || !deploymentStartAt) return;
+  const elapsed = (Date.now() - deploymentStartAt) / 1000;
+  for (const [id, rig] of parachuteRigs) {
+    const index = [...parachuteRigs.keys()].indexOf(id);
+    const x = [-30,30,-30,30][index] || 0;
+    const z = [-30,-30,30,30][index] || 0;
+    const height = Math.max(2, 38 - elapsed * 2.8);
+    rig.setPosition(x, height, z);
+  }
 });

@@ -69,6 +69,9 @@ wss.on('connection', socket => {
           Math.abs(x) <= 48 && Math.abs(z) <= 48 && Math.abs(x) >= 7;
         room.match.setLanding(socket.playerId, x, z, valid);
         broadcast(room, 'state', { state: publicState(room) });
+      } else if (message.type === 'move') {
+        const state = room.match.updateMovement(socket.playerId, message.x, message.z, message.yaw);
+        broadcast(room, 'state', { state });
       } else if (message.type === 'shoot') {
         const shot = room.match.submitShot(socket.playerId, message.shot);
         // This milestone validates and relays the shot. Ballistics/damage authority is the next server milestone.

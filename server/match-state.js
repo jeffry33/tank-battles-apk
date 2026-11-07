@@ -218,7 +218,11 @@ export class MatchState {
         vz = vz * (1 - steer) + desired.z / length * speedNow * steer;
       }
       x += vx * step;
-      y += vy * step - 0.5 * gravity * step * step;
+      // Integrate vertical velocity once per fixed step (semi-implicit Euler).
+      // The previous formula subtracted gravity without updating vy, producing
+      // an incorrect, overly flat trajectory that disagreed with client visuals.
+      vy -= gravity * step;
+      y += vy * step;
       z += vz * step;
       // Server-side collision checks: tanks first, then intact registered arena props.
       const hit = [...this.players.values()].find(target => target.alive && target.id !== id &&

@@ -79,3 +79,24 @@ test('projectile collides with an intact bunker before reaching the ground', () 
   assert.ok(bunker.hp < before);
   assert.ok(result.objectImpacts.some(item => item.id === 'bunker-west'));
 });
+
+
+test('landing rejects deep river and bunker footprints but accepts the bridge', () => {
+  const match = new MatchState();
+  match.addPlayer('p1');
+  match.addPlayer('p2');
+  match.beginDeployment('p1', 1000);
+  assert.throws(() => match.setLanding('p1', 0, -20, true), /safe terrain/);
+  assert.throws(() => match.setLanding('p1', -20, 13, true), /safe terrain/);
+  assert.doesNotThrow(() => match.setLanding('p1', 0, 8, true));
+});
+
+test('tank movement cannot enter deep water or cross arena boundary', () => {
+  const match = combatMatch();
+  const p = match.players.get('p1');
+  // Start close to the channel but on the west bank.
+  p.x = -5.8; p.z = -20;
+  assert.throws(() => match.updateMovement('p1', -5.2, -20, 0, 2000), /blocked/);
+  p.x = 47.5; p.z = -30;
+  assert.throws(() => match.updateMovement('p1', 48.2, -30, 0, 2000), /blocked/);
+});

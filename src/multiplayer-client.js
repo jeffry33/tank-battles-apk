@@ -57,6 +57,7 @@ export class MultiplayerClient {
 
   startDeployment() { return this.send({ type: 'start-deployment' }); }
   land(x, z) { return this.send({ type: 'land', x, z }); }
+  move(x, z, yaw) { return this.send({ type: 'move', x, z, yaw }); }
   shoot(shot) { return this.send({ type: 'shoot', shot }); }
   ping() { return this.send({ type: 'ping' }); }
   disconnect() { this.socket?.close(); this.socket = null; }

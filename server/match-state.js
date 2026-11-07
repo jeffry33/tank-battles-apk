@@ -71,6 +71,24 @@ export class MatchState {
     return this.snapshot();
   }
 
+  expireDisconnectedPlayers(now = Date.now(), graceMs = 90000) {
+    const expired = [];
+    for ( (const player of this.players.values()) ) {
+      if (!player.connected && player.disconnectedAt !== null &&
+          now - player.disconnectedAt >= graceMs && player.alive) {
+        player.alive = false;
+        player.hp = 0;
+        expired.push(player.id);
+      }
+    }
+    if (expired.includes(this.currentPlayerId()) && this.status === 'combat') {
+      this.advanceTurn(now);
+    } else if (this.status === 'combat' && expired.length) {
+      if (this.isMatchOver()) this.finishMatch();
+    }
+    return expired;
+  }
+
   setLanding(id, x, z, valid) {
     const player = this.requirePlayer(id);
     if (this.status !== 'deploying') throw new Error('Not in deployment phase');

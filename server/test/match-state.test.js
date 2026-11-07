@@ -171,3 +171,26 @@ test('eliminated player cannot reconnect into a match', () => {
   match.players.get('p1').alive = false;
   assert.throws(() => match.reconnectPlayer('p1'), /no longer rejoin/);
 });
+
+
+test('guided missile uses server-side homing against the nearest valid enemy', () => {
+  const match = combatMatch();
+  const shooter = match.players.get('p1');
+  const target = match.players.get('p2');
+  target.x = shooter.x + 12;
+  target.z = shooter.z + 4;
+  const result = match.resolveShot('p1', {
+    yaw: 0, elevation: 35, power: 70, weapon: 'guided'
+  }, 2000);
+  assert.equal(result.impact.guided, true);
+  assert.equal(result.shot.weapon, 'guided');
+});
+
+test('cluster bomb resolves four server-authoritative submunitions', () => {
+  const match = combatMatch();
+  const result = match.resolveShot('p1', {
+    yaw: 0, elevation: 35, power: 70, weapon: 'cluster'
+  }, 2000);
+  assert.equal(result.impact.submunitions, 4);
+  assert.equal(result.shot.weapon, 'cluster');
+});

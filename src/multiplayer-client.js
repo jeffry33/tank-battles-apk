@@ -15,7 +15,7 @@ export class MultiplayerClient {
     this.reconnectKey = 'tank-battle-reconnect:' + url + ':' + roomId;
     try { this.reconnectToken = localStorage.getItem(this.reconnectKey); } catch { this.reconnectToken = null; }
     if (this.socket && this.socket.readyState === WebSocket.OPEN) {
-      this.send({ type: 'join', roomId, mode, displayName });
+      this.send({ type: 'join', roomId, mode, displayName, reconnectToken: this.reconnectToken });
       return;
     }
     if (this.socket) this.socket.close();

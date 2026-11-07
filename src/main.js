@@ -1,4 +1,5 @@
 import * as pc from 'playcanvas';
+import { ArtilleryCombat } from './combat.js';
 import './style.css';
 
 const canvas = document.getElementById('application-canvas');
@@ -99,17 +100,12 @@ aimPad.addEventListener('pointerdown',e=>{aimPointer=e.pointerId;lastAimX=e.clie
 aimPad.addEventListener('pointermove',e=>{if(e.pointerId!==aimPointer)return;turretYaw-=(e.clientX-lastAimX)*0.45;lastAimX=e.clientX;lastAimY=e.clientY;});
 aimPad.addEventListener('pointerup',e=>{if(e.pointerId===aimPointer)aimPointer=null;});
 const message=document.getElementById('message');
-document.getElementById('fire').addEventListener('click',()=>{
-  if(shotCooldown>0)return;
-  shotCooldown=1.2;
-  message.textContent='Test shot fired — projectile system is next milestone';
-});
+const combat = new ArtilleryCombat(app, tank, turret, camera, message);
 app.on('update', dt => {
   shotCooldown=Math.max(0,shotCooldown-dt);
   const forward = -moveY*dt*7;
   tank.translateLocal(moveX*dt*7,0,forward);
-  turret.setEulerAngles(0,turretYaw,0);
-  const target = tank.getPosition().clone().add(new pc.Vec3(0,5,10));
+  if (!combat.turnLocked) turret.setEulerAngles(0,turretYaw,0);
   const current = camera.getPosition();
   const desired = tank.getPosition().clone().add(new pc.Vec3(0,7,12));
   camera.setPosition(current.lerp(desired,Math.min(1,dt*3)));

@@ -59,22 +59,58 @@ function cylinder(parent, name, pos, scale, mat) {
 // Expanded procedural Frozen River arena.
 buildFrozenRiverArena(app);
 
+// Detailed procedural tank blockout: layered hull, tracks, road wheels, turret and elevated cannon.
 const tank = new pc.Entity('Player Tank');
 app.root.addChild(tank);
-box(tank,'Hull',[0,0.85,0],[2.9,0.85,4.0],tankMat);
-box(tank,'Lower Hull',[0,0.42,0],[3.25,0.45,4.2],darkMat);
+const trackMat = material([0.055,0.067,0.064], 0.18, 0.3);
+const wheelMat = material([0.16,0.19,0.18], 0.62, 0.55);
+const accentMat = material([0.38,0.34,0.23], 0.35, 0.5);
+const glassMat = material([0.055,0.12,0.15], 0.72, 0.9);
+box(tank,'Lower armored chassis',[0,0.46,0],[3.25,0.55,4.35],darkMat);
+box(tank,'Upper sloped hull',[0,0.98,0],[2.9,0.82,3.95],tankMat);
+box(tank,'Front glacis',[0,1.18,-1.75],[2.75,0.36,0.75],tankMat).setLocalEulerAngles(-17,0,0);
+box(tank,'Rear engine deck',[0,1.32,1.35],[2.5,0.28,1.0],darkMat);
 for (const side of [-1,1]) {
-  box(tank,'Track '+side,[side*1.58,0.48,0],[0.42,0.72,4.15],darkMat);
-  for (let i=0;i<5;i++) cylinder(tank,'Road Wheel',[side*1.8,0.47,-1.45+i*0.72],[0.23,0.23,0.23],metalMat);
+  box(tank,'Track belt '+side,[side*1.62,0.55,0],[0.42,0.86,4.5],trackMat);
+  for (let i=0;i<7;i++) {
+    const wheel = cylinder(tank,'Road wheel '+side+' '+i,[side*1.86,0.54,-1.65+i*0.55],[0.58,0.58,0.18],wheelMat);
+    wheel.setLocalEulerAngles(0,0,90);
+    const hub = cylinder(tank,'Wheel hub '+side+' '+i,[side*1.96,0.54,-1.65+i*0.55],[0.24,0.24,0.2],metalMat);
+    hub.setLocalEulerAngles(0,0,90);
+  }
+  const sprocket = cylinder(tank,'Drive sprocket '+side,[side*1.86,0.56,2.02],[0.72,0.72,0.2],accentMat);
+  sprocket.setLocalEulerAngles(0,0,90);
+  for (let i=0;i<12;i++) {
+    const z=-2.12+i*0.38;
+    box(tank,'Track tread '+side+' '+i,[side*1.87,0.99,z],[0.45,0.08,0.25],metalMat);
+    box(tank,'Track tread lower '+side+' '+i,[side*1.87,0.12,z],[0.45,0.08,0.25],metalMat);
+  }
 }
-const turret = new pc.Entity('Turret');
+box(tank,'Front bumper',[0,0.62,-2.18],[2.75,0.24,0.25],metalMat);
+for (const side of [-1,1]) {
+  box(tank,'Headlight '+side,[side*1.05,1.02,-2.02],[0.28,0.2,0.12],glassMat);
+  box(tank,'Side armor plate '+side,[side*1.48,0.88,0],[0.18,0.6,2.9],tankMat);
+  box(tank,'Side marking '+side,[side*1.58,0.92,0.2],[0.04,0.12,0.65],accentMat);
+}
+const turret = new pc.Entity('Rotating Turret');
 tank.addChild(turret);
-turret.setLocalPosition(0,1.35,-0.15);
-cylinder(turret,'Turret Base',[0,0,0],[1.55,0.48,1.55],tankMat);
-box(turret,'Turret Armor',[0,0.28,0],[1.8,0.55,1.9],tankMat);
-const barrel = box(turret,'Main Cannon',[0,0.42,-1.55],[0.28,0.28,2.7],metalMat);
-box(turret,'Muzzle',[0,0.42,-2.92],[0.4,0.36,0.35],darkMat);
-
+turret.setLocalPosition(0,1.48,-0.1);
+cylinder(turret,'Turret ring',[0,0,0],[1.72,0.32,1.72],metalMat);
+box(turret,'Turret armored shell',[0,0.34,0],[1.9,0.66,2.0],tankMat);
+box(turret,'Commander cupola',[0,0.76,0.48],[0.72,0.28,0.72],darkMat);
+cylinder(turret,'Cupola hatch',[0,0.94,0.48],[0.45,0.12,0.45],metalMat);
+const barrelPivot = new pc.Entity('Cannon Elevation Pivot');
+turret.addChild(barrelPivot);
+barrelPivot.setLocalPosition(0,0.42,-0.8);
+const barrel = cylinder(barrelPivot,'Main cannon barrel',[0,0,-1.15],[0.2,0.2,2.5],metalMat);
+barrel.setLocalEulerAngles(90,0,0);
+const muzzle = cylinder(barrelPivot,'Muzzle brake',[0,0,-2.43],[0.34,0.34,0.42],darkMat);
+muzzle.setLocalEulerAngles(90,0,0);
+box(turret,'Optics housing',[0,0.62,-0.72],[0.48,0.22,0.4],glassMat);
+for (const side of [-1,1]) {
+  const smoke = cylinder(turret,'Smoke launcher '+side,[side*0.72,0.52,0.55],[0.18,0.18,0.52],darkMat);
+  smoke.setLocalEulerAngles(90,0,0);
+}
 // Basic camera follow and temporary touch controls.
 let moveX=0, moveY=0, turretYaw=0, shotCooldown=0;
 const joystick = document.getElementById('joystick');

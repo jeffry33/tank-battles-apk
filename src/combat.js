@@ -49,7 +49,10 @@ export class ArtilleryCombat {
       this.power = Number(power.value);
       this.updateHud();
     });
-    document.getElementById('fire')?.addEventListener('click', () => this.fire(weapon?.value || 'standard'));
+    document.getElementById('fire')?.addEventListener('click', () => {
+      if (window.tankBattleMultiplayer?.playerId) return; // Online shots are resolved by the server.
+      this.fire(weapon?.value || 'standard');
+    });
     document.getElementById('end-turn')?.addEventListener('click', () => this.endTurn('Turn ended manually'));
   }
 

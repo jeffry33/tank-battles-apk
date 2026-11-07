@@ -76,7 +76,7 @@ This file tracks code changes separately from features that still require end-to
 - Replace these first-pass authored textures with verified free CC0 scanned PBR materials when binary asset download and inspection are completed.
 - Integrate a production tank GLB and modular environment models; no external 3D model has been integrated yet.
 
-## Batch 8 — Authoritative special-weapon behavior (in progress)
+## Batch 8 — Authoritative special-weapon behavior
 
 **Implemented in source**
 - Guided missiles now select the nearest living enemy that is valid under the match's friendly-fire rules and steer toward that target on the server.
@@ -87,7 +87,7 @@ This file tracks code changes separately from features that still require end-to
 - Added server tests for guided target acquisition and cluster submunition count.
 
 **Still needs implementation / validation**
-- Run the updated server test suite and Android build.
+- Server test suite and Android debug APK build passed on commit `8ad988e` (GitHub Actions).
 - Tune homing turn rate, lock-on range, cluster spread and damage with actual multiplayer playtests.
 - Add distinct missile/cluster VFX, audio, collision refinement and balance safeguards.
 
@@ -102,3 +102,14 @@ This file tracks code changes separately from features that still require end-to
 ## Validation rule
 
 A source-code change is not considered complete until the relevant CI checks pass. Android readiness additionally requires a successful APK build and installation/play test on the target phone. Production readiness requires the missing art, server hosting, lifecycle, security and release work above.
+
+## Batch 9 — WebSocket input protection
+
+**Implemented in source**
+- Added a rolling-window per-connection message limiter (50 messages per 10 seconds).
+- Set a 16 KiB maximum WebSocket payload to reduce oversized-message abuse.
+- Added deterministic unit tests for rate-limit boundaries and invalid configuration.
+
+**Still needs implementation / validation**
+- Exercise the limits with real concurrent clients and tune them against normal mobile network behavior.
+- Add authentication, reconnect expiry/forfeit policy, room lifecycle cleanup and production hosting protections.

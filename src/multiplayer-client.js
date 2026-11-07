@@ -7,9 +7,13 @@ export class MultiplayerClient {
     this.playerId = null;
     this.roomId = null;
     this.hostId = null;
+    this.reconnectKey = null;
+    this.reconnectToken = null;
   }
 
   connect(url, roomId = 'quick-match', mode = 'free-for-all', displayName = 'Commander') {
+    this.reconnectKey = 'tank-battle-reconnect:' + url + ':' + roomId;
+    try { this.reconnectToken = localStorage.getItem(this.reconnectKey); } catch { this.reconnectToken = null; }
     if (this.socket && this.socket.readyState === WebSocket.OPEN) {
       this.send({ type: 'join', roomId, mode, displayName });
       return;
@@ -20,13 +24,15 @@ export class MultiplayerClient {
       this.socket = new WebSocket(url);
       this.socket.addEventListener('open', () => {
         this.onStatus('Connected · joining room…');
-        this.send({ type: 'join', roomId, mode, displayName });
+        this.send({ type: 'join', roomId, mode, displayName, reconnectToken: this.reconnectToken });
       });
       this.socket.addEventListener('message', event => {
         let message;
         try { message = JSON.parse(event.data); } catch { return; }
         if (message.type === 'joined') {
           this.playerId = message.playerId;
+          this.reconnectToken = message.reconnectToken || this.reconnectToken;
+          try { if (this.reconnectToken && this.reconnectKey) localStorage.setItem(this.reconnectKey, this.reconnectToken); } catch { /* Storage may be unavailable in private browsing. */ }
           this.roomId = message.roomId;
           this.hostId = message.state?.hostId || null;
           this.onStatus('Joined room ' + this.roomId);
@@ -65,5 +71,12 @@ export class MultiplayerClient {
   move(x, z, yaw) { return this.send({ type: 'move', x, z, yaw }); }
   shoot(shot) { return this.send({ type: 'shoot', shot }); }
   ping() { return this.send({ type: 'ping' }); }
-  disconnect() { this.socket?.close(); this.socket = null; }
+  disconnect({ forgetSession = false } = {}) {
+    this.socket?.close();
+    this.socket = null;
+    if (forgetSession && this.reconnectKey) {
+      try { localStorage.removeItem(this.reconnectKey); } catch { /* Storage may be unavailable. */ }
+      this.reconnectToken = null;
+    }
+  }
 }

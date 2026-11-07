@@ -141,11 +141,11 @@ app.on('update', dt => {
   shotCooldown=Math.max(0,shotCooldown-dt);
   networkMoveAccumulator += dt;
   const forward = -moveY*dt*7;
-  if (!combat.turnLocked) tank.translateLocal(moveX*dt*7,0,forward);
-  if (!combat.turnLocked) turret.setEulerAngles(0,turretYaw,0);
+  if (!combat.turnLocked && (!multiplayer.playerId || isMyNetworkTurn)) tank.translateLocal(moveX*dt*7,0,forward);
+  if (!combat.turnLocked && (!multiplayer.playerId || isMyNetworkTurn)) turret.setEulerAngles(0,turretYaw,0);
   if (networkMoveAccumulator >= 0.12) {
     networkMoveAccumulator = 0;
-    if (multiplayer.playerId && !combat.turnLocked) {
+    if (multiplayer.playerId && isMyNetworkTurn && !combat.turnLocked) {
       const position = tank.getPosition();
       multiplayer.move(position.x, position.z, turretYaw);
     }
@@ -162,11 +162,13 @@ document.getElementById('message').textContent='TANK BATTLE · Visual foundation
 // Optional network integration. Enter the publicly hosted WebSocket URL on the HUD.
 const networkStatus = document.getElementById('message');
 const remoteTanks = new Map();
+let isMyNetworkTurn = false;
 const multiplayer = new MultiplayerClient({
   onStatus: status => { networkStatus.textContent = status; },
   onState: state => {
     const count = state.players?.length ?? 0;
-    const turn = state.currentPlayerId === multiplayer.playerId ? 'YOUR TURN' : 'OPPONENT TURN';
+    isMyNetworkTurn = state.currentPlayerId === multiplayer.playerId;
+    const turn = isMyNetworkTurn ? 'YOUR TURN' : 'OPPONENT TURN';
     networkStatus.textContent = 'ROOM ' + state.status.toUpperCase() + ' · ' + count + '/4 PLAYERS · ' + turn;
     for (const player of (state.players || [])) {
       if (player.id === multiplayer.playerId) {

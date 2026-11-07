@@ -359,6 +359,7 @@ function applyMatchProgress(state, player) {
   return { profile, earned };
 }
 function profileLevel(xp) { let level = 1, remaining = xp; while (remaining >= level * 100) { remaining -= level * 100; level++; } return { level, into: remaining, next: level * 100 }; }
+let localReadyState = false;
 const multiplayer = new MultiplayerClient({
   onStatus: status => { networkStatus.textContent = status; },
   onState: state => {
@@ -424,9 +425,10 @@ const multiplayer = new MultiplayerClient({
       const startButton = document.getElementById('start-deployment');
       const me = (state.players || []).find(player => player.id === multiplayer.playerId);
       const readyButton = document.getElementById('ready-up');
+      localReadyState = Boolean(me?.ready);
       if (readyButton) {
         readyButton.disabled = !me || state.status !== 'waiting';
-        readyButton.textContent = me?.ready ? 'NOT READY' : 'READY';
+        readyButton.textContent = localReadyState ? 'NOT READY' : 'READY';
       }
       if (startButton) {
         const connected = (state.players || []).filter(player => player.connected !== false);
@@ -525,7 +527,8 @@ document.getElementById('connect-server')?.addEventListener('click', () => {
 document.getElementById('ready-up')?.addEventListener('click', () => {
   const statePlayer = multiplayer.playerId;
   if (!statePlayer) return;
-  multiplayer.setReady(!(window.__tankBattleReady === true));
+  localReadyState = !localReadyState;
+  multiplayer.setReady(localReadyState);
 });
 document.getElementById('start-deployment')?.addEventListener('click', () => {
   multiplayer.startDeployment();

@@ -418,7 +418,7 @@ const multiplayer = new MultiplayerClient({
       for (const player of (state.players || [])) {
         const row = document.createElement('div');
         const active = player.id === state.currentPlayerId;
-        const connection = player.connected === false ? 'OFFLINE' : !player.alive ? 'ELIMINATED' : player.landed ? 'READY' : 'AIRBORNE';
+        const connection = player.connected === false ? 'OFFLINE' : !player.alive ? 'ELIMINATED' : state.status === 'waiting' ? (player.ready ? 'READY' : 'NOT READY') : player.landed ? 'LANDED' : 'AIRBORNE';
         const team = player.team === null || player.team === undefined ? 'FFA' : 'TEAM ' + (player.team + 1);
         row.className = 'player-row' + (active ? ' active' : '') + (player.connected === false ? ' offline' : '');
         row.textContent = (active ? '▶ ' : '') + player.displayName + ' · ' + team + ' · HP ' + player.hp + ' · ' + connection;

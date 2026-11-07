@@ -138,7 +138,8 @@ A source-code change is not considered complete until the relevant CI checks pas
 **Implemented in source**
 - Starting a waiting lobby fills all remaining seats up to four with server-owned AI commanders.
 - AI seats are automatically ready and use the same team assignment, landing, turn order, HP, damage and elimination rules as human players.
-- AI turns select the nearest valid enemy, estimate a ballistic shot and submit it through the same authoritative shot resolver.
+- AI turns select the nearest valid enemy through a separately testable server controller, estimate a ballistic shot and submit it through the same authoritative shot resolver.
+- Added unit tests for AI target selection, bounded shot power and Team Battle friendly-fire avoidance.
 - AI shot results are broadcast through the normal multiplayer event, so clients render them as regular opponent shots.
 
 **Still needs implementation / validation**

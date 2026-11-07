@@ -49,7 +49,7 @@ export class MatchState {
     ][this.players.size];
     if (!this.hostId) this.hostId = id;
     this.players.set(id, {
-      id, displayName: String(displayName).slice(0, 20), team,
+      id, displayName: String(displayName).slice(0, 20), team, isBot: false,
       hp: 100, alive: true, landed: false, ready: false, connected: true, disconnectedAt: null,
       x: spawn.x, z: spawn.z, yaw: 0, movedThisTurn: 0
     });
@@ -109,13 +109,29 @@ export class MatchState {
     return this.snapshot();
   }
 
+  addBotPlayers() {
+    if (this.status !== 'waiting') throw new Error('Bots can only join a waiting lobby');
+    while (this.players.size < MATCH_RULES.maxPlayers) {
+      const id = `bot-${this.players.size + 1}`;
+      const player = this.addPlayer(id, `AI Commander ${this.players.size}`);
+      const bot = this.players.get(id);
+      bot.isBot = true;
+      bot.ready = true;
+    }
+    return this.snapshot();
+  }
+
   beginDeployment(requesterId, now = Date.now()) {
     if (requesterId !== this.hostId) throw new Error('Only the room host can start the match');
     const connectedPlayers = [...this.players.values()].filter(player => player.connected);
     if (connectedPlayers.length < 2) throw new Error('At least two connected players are required');
     if (!connectedPlayers.every(player => player.ready)) throw new Error('All connected players must be ready');
     this.status = 'deploying';
+    for (const player of this.players.values()) {
+      if (player.isBot) player.landed = true;
+    }
     this.turnDeadline = now + 30000;
+    if ([...this.players.values()].every(player => player.landed)) this.beginCombat(now);
   }
 
   beginCombat(now = Date.now()) {

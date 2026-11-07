@@ -243,3 +243,17 @@ test('disconnected players cannot ready up', () => {
   match.markDisconnected('p1', 5000);
   assert.throws(() => match.setReady('p1', true), /Disconnected/);
 });
+
+
+test('solo host can fill the remaining seats with ready AI bots', () => {
+  const match = new MatchState();
+  match.addPlayer('human');
+  match.setReady('human', true);
+  match.addBotPlayers();
+  assert.equal(match.players.size, 4);
+  assert.equal([...match.players.values()].filter(p => p.isBot).length, 3);
+  assert.ok([...match.players.values()].filter(p => p.isBot).every(p => p.ready));
+  match.beginDeployment('human', 1000);
+  assert.ok([...match.players.values()].filter(p => p.isBot).every(p => p.landed));
+  assert.equal(match.status, 'deploying');
+});

@@ -339,8 +339,9 @@ let isMyNetworkTurn = false;
 let networkTurnDeadline = 0;
 const PROFILE_KEY = 'tank-battle-profile-v1';
 function readLocalProfile() {
-  try { return JSON.parse(localStorage.getItem(PROFILE_KEY)) || { xp: 0, matches: 0, wins: 0, losses: 0, processedMatches: [] }; }
-  catch { return { xp: 0, matches: 0, wins: 0, losses: 0, processedMatches: [] }; }
+  const fallback = { xp: 0, matches: 0, wins: 0, losses: 0, draws: 0, processedMatches: [] };
+  try { return { ...fallback, ...(JSON.parse(localStorage.getItem(PROFILE_KEY)) || {}) }; }
+  catch { return fallback; }
 }
 function xpForPlayer(player, won) {
   return 50 + (won ? 100 : 0) + (player.eliminations || 0) * 25 + Math.floor((player.damageDealt || 0) / 10);
@@ -348,10 +349,11 @@ function xpForPlayer(player, won) {
 function applyMatchProgress(state, player) {
   const profile = readLocalProfile();
   if (profile.processedMatches.includes(state.matchId)) return { profile, earned: 0 };
-  const won = state.mode === 'team-battle' ? player.team === state.winner : player.id === state.winner;
+  const draw = state.winner === null;
+  const won = !draw && (state.mode === 'team-battle' ? player.team === state.winner : player.id === state.winner);
   const earned = xpForPlayer(player, won);
   profile.xp += earned; profile.matches += 1;
-  if (won) profile.wins += 1; else profile.losses += 1;
+  if (draw) profile.draws += 1; else if (won) profile.wins += 1; else profile.losses += 1;
   profile.processedMatches = [...profile.processedMatches, state.matchId].slice(-100);
   localStorage.setItem(PROFILE_KEY, JSON.stringify(profile));
   return { profile, earned };
@@ -441,7 +443,7 @@ const multiplayer = new MultiplayerClient({
         const connection = player.connected === false ? 'OFFLINE' : !player.alive ? 'ELIMINATED' : state.status === 'waiting' ? (player.ready ? 'READY' : 'NOT READY') : player.landed ? 'LANDED' : 'AIRBORNE';
         const team = player.team === null || player.team === undefined ? 'FFA' : 'TEAM ' + (player.team + 1);
         row.className = 'player-row' + (active ? ' active' : '') + (player.connected === false ? ' offline' : '');
-        row.textContent = (active ? '▶ ' : '') + player.displayName + ' · ' + team + ' · HP ' + player.hp + ' · ' + connection;
+        row.textContent = (active ? '▶ ' : '') + (player.isBot ? '🤖 ' : '') + player.displayName + ' · ' + team + ' · HP ' + player.hp + ' · ' + connection;
         roster.appendChild(row);
       }
     }

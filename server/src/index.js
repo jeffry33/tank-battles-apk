@@ -73,9 +73,14 @@ wss.on('connection', socket => {
         const state = room.match.updateMovement(socket.playerId, message.x, message.z, message.yaw);
         broadcast(room, 'state', { state });
       } else if (message.type === 'shoot') {
-        const shot = room.match.submitShot(socket.playerId, message.shot);
-        // This milestone validates and relays the shot. Ballistics/damage authority is the next server milestone.
-        broadcast(room, 'shot', { playerId: socket.playerId, shot });
+        const result = room.match.resolveShot(socket.playerId, message.shot);
+        broadcast(room, 'shot-resolved', {
+          playerId: socket.playerId,
+          shot: result.shot,
+          impact: result.impact,
+          impacts: result.impacts,
+          state: result.state
+        });
       } else if (message.type === 'turn-expired') {
         if (room.match.currentPlayerId() !== socket.playerId) throw new Error('Not your turn');
         if (!room.match.skipExpiredTurn(Date.now())) throw new Error('Turn has not expired');

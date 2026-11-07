@@ -308,3 +308,28 @@ test('solo host may start after readying and then fill remaining seats with bots
   assert.equal(match.players.size, 4);
   assert.equal([...match.players.values()].filter(player => player.isBot && player.landed).length, 3);
 });
+
+
+test('AI ballistic search chooses a legal shot for a nearby enemy', () => {
+  const match = combatMatch();
+  const bot = match.players.get('p1');
+  bot.isBot = true;
+  const target = match.players.get('p2');
+  target.x = bot.x + 20;
+  target.z = bot.z;
+  const shot = chooseBotShot(match, bot);
+  assert.equal(shot.targetId, target.id);
+  assert.ok(shot.elevation >= 20 && shot.elevation <= 65);
+  assert.ok(shot.power >= 20 && shot.power <= 100);
+  assert.ok(Math.abs(shot.yaw) <= 180);
+});
+
+test('AI does not fire when no eligible enemy remains', () => {
+  const match = combatMatch(MATCH_RULES.modes.TEAMS);
+  const bot = match.players.get('p1');
+  bot.isBot = true;
+  for (const player of match.players.values()) {
+    if (player.id !== bot.id) player.team = bot.team;
+  }
+  assert.equal(chooseBotShot(match, bot), null);
+});

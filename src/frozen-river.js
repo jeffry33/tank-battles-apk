@@ -20,11 +20,33 @@ function primitive(parent, name, type, position, scale, material, rotation = [0,
   return entity;
 }
 
+function applyTextureMap(app, material, property, url) {
+  const asset = new pc.Asset(url.split('/').pop(), 'texture', { url });
+  asset.once('load', () => {
+    const texture = asset.resource;
+    texture.addressU = pc.ADDRESS_REPEAT;
+    texture.addressV = pc.ADDRESS_REPEAT;
+    texture.magFilter = pc.FILTER_LINEAR;
+    texture.minFilter = pc.FILTER_LINEAR_MIPMAP_LINEAR;
+    material[property] = texture;
+    material.update();
+  });
+  asset.once('error', error => console.warn('Optional surface texture failed:', url, error));
+  app.assets.add(asset);
+  app.assets.load(asset);
+}
+
 export function buildFrozenRiverArena(app) {
   const root = new pc.Entity('Frozen River Alpine Warzone');
   app.root.addChild(root);
   const snow = makeMaterial([0.79, 0.86, 0.9], 0.04, 0.68);
+  snow.diffuseMapTiling.set(7, 7);
+  snow.bumpiness = 0.18;
+  applyTextureMap(app, snow, 'diffuseMap', '/assets/textures/snow-albedo.svg');
+  applyTextureMap(app, snow, 'normalMap', '/assets/textures/snow-normal.svg');
   const ice = makeMaterial([0.22, 0.48, 0.59], 0.42, 0.9);
+  ice.diffuseMapTiling.set(4, 18);
+  applyTextureMap(app, ice, 'diffuseMap', '/assets/textures/ice-albedo.svg');
   const iceEdge = makeMaterial([0.55, 0.72, 0.78], 0.2, 0.78);
   const rock = makeMaterial([0.28, 0.33, 0.37], 0.08, 0.3);
   const darkRock = makeMaterial([0.15, 0.19, 0.22], 0.04, 0.25);

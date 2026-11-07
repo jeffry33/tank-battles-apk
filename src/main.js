@@ -483,7 +483,8 @@ document.getElementById('connect-server')?.addEventListener('click', () => {
   const roomId = document.getElementById('room-id')?.value.trim() || 'quick-match';
   if (!url) { networkStatus.textContent = 'Enter a WebSocket server URL'; return; }
   const mode = document.getElementById('game-mode')?.value || 'free-for-all';
-  multiplayer.connect(url, roomId, mode, 'Commander');
+  const displayName = (document.getElementById('commander-name')?.value || 'Commander').trim().slice(0, 20) || 'Commander';
+  multiplayer.connect(url, roomId, mode, displayName);
 });
 document.getElementById('start-deployment')?.addEventListener('click', () => {
   multiplayer.startDeployment();

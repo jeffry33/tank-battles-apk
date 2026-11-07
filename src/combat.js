@@ -1,12 +1,13 @@
 import * as pc from 'playcanvas';
 
 export class ArtilleryCombat {
-  constructor(app, tank, turret, camera, message) {
+  constructor(app, tank, turret, camera, message, destructibleWorld = null) {
     this.app = app;
     this.tank = tank;
     this.turret = turret;
     this.camera = camera;
     this.message = message;
+    this.destructibleWorld = destructibleWorld;
     this.hp = 100;
     this.turnSeconds = 60;
     this.turnTransition = 0;
@@ -118,6 +119,7 @@ export class ArtilleryCombat {
     blast.setLocalScale(0.8, 0.8, 0.8);
     this.app.root.addChild(blast);
     this.explosions.push({ entity: blast, life: 0.42, duration: 0.42 });
+    this.destructibleWorld?.applyImpact(position, projectile.radius, projectile.damage * 2.2);
     const tankPosition = this.tank.getPosition();
     if (tankPosition.distance(position) < projectile.radius + 2.5) {
       this.hp = Math.max(0, this.hp - projectile.damage);

@@ -7,6 +7,7 @@ export const MATCH_RULES = Object.freeze({
   modes: Object.freeze({ FFA: 'free-for-all', TEAMS: 'team-battle' })
 });
 
+import { randomUUID } from 'node:crypto';
 import { ARENA_DESTRUCTIBLES } from '../src/arena-destructibles.js';
 
 export function isValidArenaPosition(x, z) {
@@ -28,6 +29,7 @@ export class MatchState {
   constructor(mode = MATCH_RULES.modes.FFA) {
     if (!Object.values(MATCH_RULES.modes).includes(mode)) throw new Error('Unsupported game mode');
     this.mode = mode;
+    this.matchId = randomUUID();
     this.players = new Map();
     this.turnOrder = [];
     this.turnIndex = 0;
@@ -51,6 +53,7 @@ export class MatchState {
     this.players.set(id, {
       id, displayName: String(displayName).slice(0, 20), team, isBot: false,
       hp: 100, alive: true, landed: false, ready: false, connected: true, disconnectedAt: null,
+      shotsFired: 0, damageDealt: 0, eliminations: 0,
       x: spawn.x, z: spawn.z, yaw: 0, movedThisTurn: 0
     });
     return this.snapshot();
@@ -186,6 +189,7 @@ export class MatchState {
   resolveShot(id, shot, now = Date.now()) {
     const validated = this.submitShot(id, shot, now);
     const shooter = this.requirePlayer(id);
+    shooter.shotsFired++;
     const yaw = validated.yaw * Math.PI / 180;
     const elevation = validated.elevation * Math.PI / 180;
     const speed = validated.power / 100 * 42;
@@ -272,6 +276,8 @@ export class MatchState {
       const damage = Math.min(target.hp, totalDamage);
       target.hp = Math.max(0, target.hp - totalDamage);
       if (target.hp === 0) target.alive = false;
+      shooter.damageDealt += damage;
+      if (!target.alive) shooter.eliminations++;
       impacts.push({ playerId, damage, hp: target.hp, eliminated: !target.alive });
     }
     const objectImpacts = [...objectImpactsById.values()];
@@ -346,7 +352,7 @@ export class MatchState {
 
   snapshot() {
     return {
-      mode: this.mode, status: this.status, hostId: this.hostId, currentPlayerId: this.currentPlayerId(),
+      matchId: this.matchId, mode: this.mode, status: this.status, hostId: this.hostId, currentPlayerId: this.currentPlayerId(),
       turnDeadline: this.turnDeadline, winner: this.winner,
       players: [...this.players.values()].map(p => ({ ...p })),
       destructibles: [...this.destructibles.values()].map(({ id, kind, x, y, z, hp, alive }) => ({ id, kind, x, y, z, hp, alive }))

@@ -60,7 +60,7 @@ wss.on('connection', socket => {
 
       if (message.type === 'start-deployment') {
         if (room.match.status !== 'waiting') throw new Error('Deployment already started');
-        room.match.beginDeployment();
+        room.match.beginDeployment(socket.playerId);
         broadcast(room, 'state', { state: publicState(room) });
       } else if (message.type === 'land') {
         const { x, z } = message;

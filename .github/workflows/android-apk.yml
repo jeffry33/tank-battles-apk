@@ -3,6 +3,8 @@ name: Build TANK BATTLE Android APK
 on:
   workflow_dispatch:
   push:
+    branches: [ "main", "feature/**" ]
+  pull_request:
     branches: [ "main" ]
 
 jobs:

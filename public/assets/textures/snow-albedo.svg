@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
+<defs><filter id="snow"><feTurbulence type="fractalNoise" baseFrequency=".055" numOctaves="4" seed="19" stitchTiles="stitch"/><feColorMatrix values=".22 0 0 0 .68 .22 0 0 0 .73 .22 0 0 0 .79 0 0 0 .24 0"/></filter><filter id="grain"><feTurbulence type="fractalNoise" baseFrequency=".42" numOctaves="2" seed="8" stitchTiles="stitch"/><feColorMatrix values=".5 0 0 0 .25 .5 0 0 0 .27 .5 0 0 0 .3 0 0 0 .18 0"/></filter></defs>
+<rect width="512" height="512" fill="#dce6ed"/><rect width="512" height="512" filter="url(#snow)" opacity=".82"/><rect width="512" height="512" filter="url(#grain)" opacity=".23"/>
+<g fill="#f8fbff" opacity=".45"><ellipse cx="82" cy="110" rx="64" ry="18"/><ellipse cx="365" cy="304" rx="86" ry="22"/><ellipse cx="218" cy="450" rx="70" ry="17"/></g>
+</svg>

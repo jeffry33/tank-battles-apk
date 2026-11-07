@@ -145,9 +145,9 @@ export class MatchState {
     const yaw = validated.yaw * Math.PI / 180;
     const elevation = validated.elevation * Math.PI / 180;
     const speed = validated.power / 100 * 42;
-    const vx = -Math.sin(yaw) * Math.cos(elevation) * speed;
-    const vy = Math.sin(elevation) * speed;
-    const vz = -Math.cos(yaw) * Math.cos(elevation) * speed;
+    let vx = -Math.sin(yaw) * Math.cos(elevation) * speed;
+    let vy = Math.sin(elevation) * speed;
+    let vz = -Math.cos(yaw) * Math.cos(elevation) * speed;
     let x = shooter.x, y = 1.8, z = shooter.z, t = 0;
     const gravity = 9.81, step = 0.04;
     let impactReason = 'ground';

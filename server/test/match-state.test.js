@@ -64,3 +64,18 @@ test('Frozen River destructible registry is initialized consistently on the serv
   assert.equal(match.destructibles.get('bridge-rail-east').hp, 65);
   assert.equal(match.destructibles.get('supply-crate-8').alive, true);
 });
+
+test('projectile collides with an intact bunker before reaching the ground', () => {
+  const match = combatMatch();
+  const shooter = match.players.get('p1');
+  shooter.x = -20;
+  shooter.z = 0;
+  const bunker = match.destructibles.get('bunker-west');
+  const before = bunker.hp;
+  const result = match.resolveShot('p1', {
+    yaw: 180, elevation: 10, power: 20, weapon: 'standard'
+  }, 2000);
+  assert.equal(result.impact.reason, 'object');
+  assert.ok(bunker.hp < before);
+  assert.ok(result.objectImpacts.some(item => item.id === 'bunker-west'));
+});

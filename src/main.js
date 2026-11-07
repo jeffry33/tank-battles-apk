@@ -170,6 +170,49 @@ document.getElementById('message').textContent='TANK BATTLE · Visual foundation
 
 // Optional network integration. Enter the publicly hosted WebSocket URL on the HUD.
 const networkStatus = document.getElementById('message');
+const networkProjectiles = [];
+const networkExplosions = [];
+function spawnNetworkShot(data) {
+  if (!data?.impact || !data?.shot || !data?.state) return;
+  const shooter = (data.state.players || []).find(player => player.id === data.playerId);
+  if (!shooter) return;
+  const shot = data.shot;
+  const yaw = shot.yaw * Math.PI / 180;
+  const elevation = shot.elevation * Math.PI / 180;
+  const speed = shot.power / 100 * 42;
+  const velocity = new pc.Vec3(
+    -Math.sin(yaw) * Math.cos(elevation) * speed,
+    Math.sin(elevation) * speed,
+    -Math.cos(yaw) * Math.cos(elevation) * speed
+  );
+  const shellMaterial = material([1, 0.58, 0.12], 0.25, 0.8);
+  shellMaterial.emissive = new pc.Color(1, 0.32, 0.04);
+  shellMaterial.update();
+  const shell = new pc.Entity('Network Artillery Projectile');
+  shell.addComponent('render', { type: 'sphere', material: shellMaterial });
+  shell.setLocalScale(0.42, 0.42, 0.42);
+  shell.setPosition(shooter.x, 1.8, shooter.z);
+  app.root.addChild(shell);
+  networkProjectiles.push({
+    entity: shell,
+    origin: new pc.Vec3(shooter.x, 1.8, shooter.z),
+    velocity,
+    elapsed: 0,
+    duration: Math.max(0.04, data.impact.flightSeconds || 0.04),
+    impact: data.impact
+  });
+}
+function spawnNetworkExplosion(position, radius) {
+  const fxMaterial = material([1, 0.26, 0.035], 0, 0.25);
+  fxMaterial.emissive = new pc.Color(1, 0.12, 0.015);
+  fxMaterial.update();
+  const fx = new pc.Entity('Network Impact Explosion');
+  fx.addComponent('render', { type: 'sphere', material: fxMaterial });
+  fx.setPosition(position.x, Math.max(0.5, position.y), position.z);
+  fx.setLocalScale(0.6, 0.6, 0.6);
+  app.root.addChild(fx);
+  networkExplosions.push({ entity: fx, life: 0.65, duration: 0.65, radius: Math.max(2, radius || 4) });
+}
 const remoteTanks = new Map();
 const parachuteRigs = new Map();
 let deploymentStartAt = 0;
@@ -274,6 +317,7 @@ const multiplayer = new MultiplayerClient({
   },
   onShot: data => {
     if (data.impact) {
+      spawnNetworkShot(data);
       const damageText = (data.impacts || []).map(hit => hit.damage + ' DMG').join(', ') || 'NO DAMAGE';
       networkStatus.textContent = 'IMPACT · ' + damageText + ' · ' + data.impact.flightSeconds + 's flight';
       const ownHit = (data.impacts || []).find(hit => hit.playerId === multiplayer.playerId);

@@ -161,3 +161,18 @@ A source-code change is not considered complete until the relevant CI checks pas
 - Add account authentication and server/database persistence before promising profile sync across devices.
 - Add profile screen, lifetime statistics, match history, cosmetic inventory and progression balancing.
 - Validate XP awards for FFA, 2v2, draws, reconnects and AI matches.
+
+
+## Batch 12 — Solo lobby hardening and server deployment foundation
+
+**Implemented in source**
+- Lobby start now verifies that the host is human and every connected human has readied up before filling the remaining seats with bots. This avoids filling a room with bots after a premature START click.
+- Match results now count draws separately from losses, and AI commanders are visually marked in the roster.
+- Added a container recipe for the WebSocket server and deployment instructions for a host that supports persistent WebSocket connections.
+- Added an HTTP GET /health endpoint for basic hosting-provider health checks while keeping WebSocket traffic on the same port.
+- Updated README to reflect current reconnect, rate-limit, AI and local-progression capabilities and their limitations.
+
+**Still needs implementation / validation**
+- Build and run the server container on a real hosting provider; no public server URL is configured.
+- Test HTTP health checks, secure WebSocket upgrades, solo AI match flow and human multiplayer from actual devices.
+- Add authentication, persistent accounts, database-backed profile and production anti-cheat before public launch.

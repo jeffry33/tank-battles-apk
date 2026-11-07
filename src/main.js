@@ -169,6 +169,7 @@ const networkStatus = document.getElementById('message');
 const remoteTanks = new Map();
 const parachuteRigs = new Map();
 let deploymentStartAt = 0;
+let myLandingX = -30, myLandingZ = -30;
 let isMyNetworkTurn = false;
 let networkTurnDeadline = 0;
 const multiplayer = new MultiplayerClient({
@@ -219,6 +220,7 @@ const multiplayer = new MultiplayerClient({
     networkStatus.textContent = 'ROOM ' + state.status.toUpperCase() + ' · ' + count + '/4 PLAYERS · ' + turn;
     for (const player of (state.players || [])) {
       if (player.id === multiplayer.playerId) {
+        myLandingX = player.x; myLandingZ = player.z;
         if (state.status === 'combat') {
           tank.setPosition(player.x, tank.getPosition().y, player.z);
           turretYaw = player.yaw || 0;
@@ -276,9 +278,7 @@ document.getElementById('fire')?.addEventListener('click', () => {
 document.getElementById('start-deployment')?.insertAdjacentHTML('afterend',
   '<button id="land-tank" style="padding:7px;background:#315b43;color:white;border:1px solid #9fc7a9;border-radius:5px">LAND</button>');
 document.getElementById('land-tank')?.addEventListener('click', () => {
-  const px = tank.getPosition().x;
-  const pz = tank.getPosition().z;
-  multiplayer.land(px, pz);
+  multiplayer.land(myLandingX, myLandingZ);
 });
 app.on('update', () => {
   if (!parachuteRigs.size || !deploymentStartAt) return;

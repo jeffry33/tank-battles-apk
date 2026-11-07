@@ -19,7 +19,7 @@ TANK BATTLE is an in-development, turn-based 3D tank artillery game. This reposi
 - Projectile collision is simplified server-side geometry, not full mesh / terrain physics. Weapon behavior and balance still need validation.
 - Destructible objects use simplified hit volumes and visual proxies; stable per-object visual mapping and debris need further work.
 - Multiplayer is a prototype WebSocket room server. It has no public hosting, matchmaking, authentication, reconnect flow, persistent accounts, rate limiting or production anti-cheat.
-- Disconnect recovery, host transfer and robust handling of abandoned rooms are not implemented.
+- Token-based reconnect is implemented for the same room while the match is still active. Disconnect grace/forfeit policy, host transfer and robust handling of abandoned rooms are not implemented.
 - Deployment is not yet the complete cargo-plane / steerable parachute sequence.
 - No production tank GLB, final PBR environment set, full audio suite or complete progression system has been integrated.
 - Graphics profiles are implementation targets, not measured benchmarks. The target iQOO Neo 10 has not yet been physically tested.

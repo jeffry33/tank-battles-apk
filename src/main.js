@@ -199,7 +199,12 @@ const multiplayer = new MultiplayerClient({
       remote.enabled = player.alive;
     }
   },
-  onShot: data => { networkStatus.textContent = 'PLAYER SHOT RECEIVED · ' + data.playerId; }
+  onShot: data => {
+    if (data.impact) {
+      const damageText = (data.impacts || []).map(hit => hit.damage + ' DMG').join(', ') || 'NO DAMAGE';
+      networkStatus.textContent = 'IMPACT · ' + damageText + ' · ' + data.impact.flightSeconds + 's flight';
+    } else networkStatus.textContent = 'PLAYER SHOT RECEIVED · ' + data.playerId;
+  }
 });
 document.getElementById('connect-server')?.addEventListener('click', () => {
   const url = document.getElementById('server-url')?.value.trim();
@@ -211,3 +216,11 @@ document.getElementById('start-deployment')?.addEventListener('click', () => {
   multiplayer.startDeployment();
 });
 window.tankBattleMultiplayer = multiplayer;
+
+document.getElementById('fire')?.addEventListener('click', () => {
+  if (!multiplayer.playerId || !isMyNetworkTurn) return;
+  const elevation = Number(document.getElementById('elevation')?.value || 35);
+  const power = Number(document.getElementById('power')?.value || 70);
+  const weapon = document.getElementById('weapon')?.value || 'standard';
+  multiplayer.shoot({ yaw: turretYaw, elevation, power, weapon });
+});

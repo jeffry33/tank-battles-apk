@@ -12,6 +12,7 @@ export class ArtilleryCombat {
     this.turnSeconds = 60;
     this.turnTransition = 0;
     this.turnLocked = false;
+    this.onlineMode = false;
     this.projectiles = [];
     this.explosions = [];
     this.shellMaterial = this.makeMaterial([1, 0.68, 0.2], 0.35, 0.8);
@@ -85,8 +86,8 @@ export class ArtilleryCombat {
   }
 
   update(dt) {
-    if (this.turnTransition > 0) { this.turnTransition -= dt; if (this.turnTransition <= 0 && this.hp > 0) { this.turnLocked = false; this.turnSeconds = 60; this.message.textContent = 'YOUR TURN · Aim and fire'; } }
-    if (!this.turnLocked && this.hp > 0) {
+    if (!this.onlineMode && this.turnTransition > 0) { this.turnTransition -= dt; if (this.turnTransition <= 0 && this.hp > 0) { this.turnLocked = false; this.turnSeconds = 60; this.message.textContent = 'YOUR TURN · Aim and fire'; } }
+    if (!this.onlineMode && !this.turnLocked && this.hp > 0) {
       this.turnSeconds -= dt;
       if (this.turnSeconds <= 0) this.endTurn('TIME OUT · Turn skipped');
     }
@@ -143,7 +144,7 @@ export class ArtilleryCombat {
 
   updateHud() {
     if (this.hpLabel) this.hpLabel.textContent = 'HP ' + this.hp + '/100';
-    if (this.turnLabel) this.turnLabel.textContent = this.turnTransition > 0 ? 'NEXT TURN…' : this.turnLocked ? 'SHOT IN FLIGHT' : 'TURN ' + Math.ceil(this.turnSeconds) + 's';
+    if (this.turnLabel && !this.onlineMode) this.turnLabel.textContent = this.turnTransition > 0 ? 'NEXT TURN…' : this.turnLocked ? 'SHOT IN FLIGHT' : 'TURN ' + Math.ceil(this.turnSeconds) + 's';
     const e = document.getElementById('elevation-value');
     const p = document.getElementById('power-value');
     if (e) e.textContent = this.elevation + '°';

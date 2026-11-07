@@ -173,6 +173,15 @@ const networkStatus = document.getElementById('message');
 const networkProjectiles = [];
 const networkExplosions = [];
 const networkTrailPuffs = [];
+let cinematicProjectile = null;
+let cinematicCameraReturn = null;
+let recoilRemaining = 0;
+let muzzleFlashRemaining = 0;
+let muzzleFlashEntity = null;
+const muzzleFlashMaterial = material([1, 0.68, 0.2], 0, 0.9);
+muzzleFlashMaterial.emissive = new pc.Color(1, 0.38, 0.05);
+muzzleFlashMaterial.update();
+const recoilOrigin = new pc.Vec3(0, 0, -0.8);
 const networkTrailMaterial = material([0.32, 0.34, 0.33], 0, 0.12);
 networkTrailMaterial.opacity = 0.52;
 networkTrailMaterial.blendType = pc.BLEND_NORMAL;
@@ -198,6 +207,22 @@ function spawnNetworkShot(data) {
   shell.setLocalScale(0.42, 0.42, 0.42);
   shell.setPosition(shooter.x, 1.8, shooter.z);
   app.root.addChild(shell);
+  // Brief muzzle flash and cannon recoil on the local tank when it fires.
+  if (data.playerId === multiplayer.playerId) {
+    muzzleFlashEntity?.destroy();
+    muzzleFlashEntity = new pc.Entity('Cannon muzzle flash');
+    muzzleFlashEntity.addComponent('render', { type: 'sphere', material: muzzleFlashMaterial });
+    muzzleFlashEntity.setLocalScale(0.95, 0.95, 1.5);
+    barrelPivot.addChild(muzzleFlashEntity);
+    muzzleFlashEntity.setLocalPosition(0, 0, -2.8);
+    muzzleFlashRemaining = 0.12;
+    recoilRemaining = 0.18;
+  }
+  // Camera follows the authoritative projectile for a short cinematic shot.
+  if (!cinematicProjectile) {
+    cinematicCameraReturn = camera.getPosition().clone();
+    cinematicProjectile = shell;
+  }
   networkProjectiles.push({
     entity: shell,
     origin: new pc.Vec3(shooter.x, 1.8, shooter.z),
@@ -360,6 +385,23 @@ document.getElementById('land-tank')?.addEventListener('click', () => {
   multiplayer.land(myLandingX, myLandingZ);
 });
 app.on('update', dt => {
+  if (recoilRemaining > 0) {
+    recoilRemaining = Math.max(0, recoilRemaining - dt);
+    const kick = Math.sin((recoilRemaining / 0.18) * Math.PI) * 0.22;
+    barrelPivot.setLocalPosition(0, 0.42, -0.8 + kick);
+  } else {
+    barrelPivot.setLocalPosition(0, 0.42, -0.8);
+  }
+  if (muzzleFlashRemaining > 0) {
+    muzzleFlashRemaining = Math.max(0, muzzleFlashRemaining - dt);
+    if (muzzleFlashEntity) {
+      const size = 0.35 + (muzzleFlashRemaining / 0.12) * 0.9;
+      muzzleFlashEntity.setLocalScale(size, size, size * 1.5);
+    }
+  } else if (muzzleFlashEntity) {
+    muzzleFlashEntity.destroy();
+    muzzleFlashEntity = null;
+  }
   for (let i = networkProjectiles.length - 1; i >= 0; i--) {
     const projectile = networkProjectiles[i];
     projectile.elapsed += dt;
@@ -381,6 +423,17 @@ app.on('update', dt => {
       networkProjectiles.splice(i, 1);
     } else {
       projectile.entity.setPosition(position);
+    }
+  }
+  if (cinematicProjectile && cinematicProjectile.enabled) {
+    const p = cinematicProjectile.getPosition();
+    const offset = new pc.Vec3(0, 3.2, 7.5);
+    const targetCamera = p.clone().add(offset);
+    camera.setPosition(camera.getPosition().lerp(targetCamera, Math.min(1, dt * 4)));
+    camera.lookAt(p);
+    if (!networkProjectiles.some(item => item.entity === cinematicProjectile)) {
+      cinematicProjectile = null;
+      cinematicCameraReturn = null;
     }
   }
   for (let i = networkTrailPuffs.length - 1; i >= 0; i--) {

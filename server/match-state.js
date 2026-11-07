@@ -234,7 +234,7 @@ export class MatchState {
     this.advanceTurn(now);
     return {
       shot: validated,
-      impact: { x, y, z, reason: impactReason, flightSeconds: Number(t.toFixed(2)), radius, submunitions: blastPoints.length - 1, guided: Boolean(guidedTarget) },
+      impact: { x, y, z, reason: impactReason, flightSeconds: Number(t.toFixed(2)), radius, submunitions: blastPoints.length - 1, submunitionPoints: blastPoints.slice(1).map(point => ({ x: point.x, y: point.y, z: point.z })), guided: Boolean(guidedTarget) },
       impacts,
       objectImpacts,
       state: this.snapshot()

@@ -100,6 +100,7 @@ box(turret,'Turret armored shell',[0,0.34,0],[1.9,0.66,2.0],tankMat);
 box(turret,'Commander cupola',[0,0.76,0.48],[0.72,0.28,0.72],darkMat);
 cylinder(turret,'Cupola hatch',[0,0.94,0.48],[0.45,0.12,0.45],metalMat);
 const barrelPivot = new pc.Entity('Cannon Elevation Pivot');
+turret.barrelPivot = barrelPivot;
 turret.addChild(barrelPivot);
 barrelPivot.setLocalPosition(0,0.42,-0.8);
 const barrel = cylinder(barrelPivot,'Main cannon barrel',[0,0,-1.15],[0.2,0.2,2.5],metalMat);

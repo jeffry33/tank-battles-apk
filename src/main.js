@@ -142,6 +142,7 @@ app.on('update', dt => {
   networkMoveAccumulator += dt;
   if (multiplayer.playerId && networkTurnDeadline > 0) {
     const remaining = Math.max(0, Math.ceil((networkTurnDeadline - Date.now()) / 1000));
+    if (isMyNetworkTurn) combat.turnSeconds = remaining;
     const timer = document.getElementById('turn-timer');
     if (timer) timer.textContent = 'TURN ' + remaining + 's';
   }
@@ -182,6 +183,18 @@ const multiplayer = new MultiplayerClient({
     const count = state.players?.length ?? 0;
     isMyNetworkTurn = state.currentPlayerId === multiplayer.playerId;
     networkTurnDeadline = state.turnDeadline || 0;
+    if (multiplayer.playerId) {
+      const me = (state.players || []).find(p => p.id === multiplayer.playerId);
+      if (me) {
+        combat.hp = me.hp;
+        combat.updateHud();
+        combat.turnLocked = !isMyNetworkTurn || !me.alive || state.status !== 'combat';
+      }
+      const winnerLabel = state.status === 'finished'
+        ? (state.winner === null ? 'DRAW · MATCH FINISHED' : state.mode === 'team-battle' ? 'TEAM ' + (state.winner + 1) + ' WINS' : 'PLAYER ' + state.winner.slice(0, 6) + ' WINS')
+        : '';
+      if (winnerLabel) networkStatus.textContent = winnerLabel;
+    }
     isDeployingNetwork = state.status === 'deploying';
     if (state.status === 'deploying' && !deploymentStartAt) deploymentStartAt = Date.now();
     if (state.status !== 'deploying') deploymentStartAt = 0;
@@ -251,12 +264,22 @@ const multiplayer = new MultiplayerClient({
       remote.setPosition(player.x, 0.7, player.z);
       remote.setEulerAngles(0, player.yaw || 0, 0);
       remote.enabled = player.alive;
+      if (player.id === state.currentPlayerId) {
+        remote.name = 'ACTIVE · ' + player.displayName;
+      } else {
+        remote.name = 'Remote Tank ' + player.displayName;
+      }
     }
   },
   onShot: data => {
     if (data.impact) {
       const damageText = (data.impacts || []).map(hit => hit.damage + ' DMG').join(', ') || 'NO DAMAGE';
       networkStatus.textContent = 'IMPACT · ' + damageText + ' · ' + data.impact.flightSeconds + 's flight';
+      const ownHit = (data.impacts || []).find(hit => hit.playerId === multiplayer.playerId);
+      if (ownHit) {
+        combat.hp = ownHit.hp;
+        combat.updateHud();
+      }
     } else networkStatus.textContent = 'PLAYER SHOT RECEIVED · ' + data.playerId;
   }
 });

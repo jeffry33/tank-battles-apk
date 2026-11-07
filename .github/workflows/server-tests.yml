@@ -26,3 +26,6 @@ jobs:
           node-version: 22
       - run: npm install
       - run: npm test
+
+      - name: Validate multiplayer server container
+        run: docker build -f Dockerfile.server -t tank-battle-server:test .

@@ -87,6 +87,10 @@ wss.on('connection', socket => {
         broadcast(room, 'state', { state });
       } else if (message.type === 'start-deployment') {
         if (room.match.status !== 'waiting') throw new Error('Deployment already started');
+        if (socket.playerId !== room.match.hostId) throw new Error('Only the room host can start the match');
+        const humanPlayers = [...room.match.players.values()].filter(player => !player.isBot && player.connected);
+        if (humanPlayers.length < 1) throw new Error('At least one human player is required');
+        if (!humanPlayers.every(player => player.ready)) throw new Error('All human players must be ready before starting');
         room.match.addBotPlayers();
         room.match.beginDeployment(socket.playerId);
         broadcast(room, 'state', { state: publicState(room) });

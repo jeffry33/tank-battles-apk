@@ -2,6 +2,7 @@ import * as pc from 'playcanvas';
 import { ArtilleryCombat } from './combat.js';
 import { buildFrozenRiverArena } from './frozen-river.js';
 import { DestructibleWorld } from './destructible-world.js';
+import { MultiplayerClient } from './multiplayer-client.js';
 import './style.css';
 
 const canvas = document.getElementById('application-canvas');
@@ -147,3 +148,26 @@ app.on('update', dt => {
 });
 window.addEventListener('resize',()=>app.resizeCanvas());
 document.getElementById('message').textContent='TANK BATTLE · Visual foundation blockout';
+
+
+// Optional network integration. Enter the publicly hosted WebSocket URL on the HUD.
+const networkStatus = document.getElementById('message');
+const multiplayer = new MultiplayerClient({
+  onStatus: status => { networkStatus.textContent = status; },
+  onState: state => {
+    const count = state.players?.length ?? 0;
+    const turn = state.currentPlayerId === multiplayer.playerId ? 'YOUR TURN' : 'OPPONENT TURN';
+    networkStatus.textContent = 'ROOM ' + state.status.toUpperCase() + ' · ' + count + '/4 PLAYERS · ' + turn;
+  },
+  onShot: data => { networkStatus.textContent = 'PLAYER SHOT RECEIVED · ' + data.playerId; }
+});
+document.getElementById('connect-server')?.addEventListener('click', () => {
+  const url = document.getElementById('server-url')?.value.trim();
+  const roomId = document.getElementById('room-id')?.value.trim() || 'quick-match';
+  if (!url) { networkStatus.textContent = 'Enter a WebSocket server URL'; return; }
+  multiplayer.connect(url, roomId, 'free-for-all', 'Commander');
+});
+document.getElementById('start-deployment')?.addEventListener('click', () => {
+  multiplayer.startDeployment();
+});
+window.tankBattleMultiplayer = multiplayer;

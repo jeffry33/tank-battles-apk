@@ -81,7 +81,8 @@ This file tracks code changes separately from features that still require end-to
 **Implemented in source**
 - Guided missiles now select the nearest living enemy that is valid under the match's friendly-fire rules and steer toward that target on the server.
 - Cluster bombs now resolve a central blast plus four offset submunition blasts; damage is aggregated per target and object before the turn advances.
-- Shot result metadata reports whether guidance was active and how many submunitions were resolved.
+- Shot result metadata reports whether guidance was active, how many submunitions were resolved, and their authoritative impact coordinates.
+- The client renders the central cluster blast plus the four server-reported submunition impacts.
 - The online guided-missile visual now travels to the server-reported impact point instead of showing an unrelated straight ballistic arc.
 - Added server tests for guided target acquisition and cluster submunition count.
 

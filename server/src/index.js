@@ -64,9 +64,10 @@ wss.on('connection', socket => {
         broadcast(room, 'state', { state: publicState(room) });
       } else if (message.type === 'land') {
         const { x, z } = message;
-        // Server performs basic arena bounds validation; production needs terrain/navmesh validation.
-        const valid = Number.isFinite(x) && Number.isFinite(z) &&
-          Math.abs(x) <= 48 && Math.abs(z) <= 48 && Math.abs(x) >= 7;
+        // Only validate payload types here. MatchState owns arena bounds, river,
+        // bridge, bunker-footprint and spacing rules; duplicating partial rules
+        // here previously rejected the valid bridge landing at x=0.
+        const valid = Number.isFinite(x) && Number.isFinite(z);
         room.match.setLanding(socket.playerId, x, z, valid);
         broadcast(room, 'state', { state: publicState(room) });
       } else if (message.type === 'move') {

@@ -33,6 +33,9 @@ export class MultiplayerClient {
           this.onState(message.state);
         } else if (message.type === 'shot') {
           this.onShot(message);
+        } else if (message.type === 'shot-resolved') {
+          this.onShot(message);
+          if (message.state) this.onState(message.state);
         } else if (message.type === 'error') {
           this.onStatus('Server: ' + message.message);
         } else if (message.type === 'pong') {

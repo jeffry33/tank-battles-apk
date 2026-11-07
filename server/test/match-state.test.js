@@ -215,3 +215,23 @@ test('disconnected player can reconnect before the grace period expires', () => 
   assert.equal(match.players.get('p2').alive, true);
   assert.deepEqual(match.expireDisconnectedPlayers(100000, 90000), []);
 });
+
+
+test('lobby requires every connected player to ready up before deployment', () => {
+  const match = new MatchState();
+  match.addPlayer('p1');
+  match.addPlayer('p2');
+  assert.throws(() => match.beginDeployment('p1', 1000), /ready/);
+  match.setReady('p1', true);
+  assert.throws(() => match.beginDeployment('p1', 1000), /ready/);
+  match.setReady('p2', true);
+  match.beginDeployment('p1', 1000);
+  assert.equal(match.status, 'deploying');
+});
+
+test('disconnected players cannot ready up', () => {
+  const match = new MatchState();
+  match.addPlayer('p1');
+  match.markDisconnected('p1', 5000);
+  assert.throws(() => match.setReady('p1', true), /Disconnected/);
+});

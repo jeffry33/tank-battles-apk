@@ -63,6 +63,19 @@ This file tracks code changes separately from features that still require end-to
 - Verify orientation, touch layout, pause/resume, app lifecycle and network switching.
 - Signed release APK, versioning and release notes.
 
+## Batch 7 — First integrated winter surface assets
+
+**Implemented in source**
+- Added three original lightweight SVG surface maps: tiled snow albedo, snow normal-style map and frozen-ice albedo.
+- Wired asynchronous texture loading into the Frozen River snow and ice materials, with repeat addressing and material refresh after load.
+- Kept procedural color materials as fallbacks if a texture fails to load.
+- Recorded the original assets and their runtime paths in `ASSET_CREDITS.md`.
+
+**Still needs implementation / validation**
+- Confirm SVG texture support and visual quality in the Android WebView build.
+- Replace these first-pass authored textures with verified free CC0 scanned PBR materials when binary asset download and inspection are completed.
+- Integrate a production tank GLB and modular environment models; no external 3D model has been integrated yet.
+
 ## Production art and remaining game systems
 
 - No production-grade external tank or environment asset is confirmed integrated. The free-only asset policy remains in force.

@@ -151,3 +151,23 @@ test('room cannot exceed the four-player match limit', () => {
   for (let i = 1; i <= 4; i++) match.addPlayer('p' + i);
   assert.throws(() => match.addPlayer('p5'), /full/);
 });
+
+
+test('player connection state can be suspended and restored for reconnect', () => {
+  const match = new MatchState();
+  match.addPlayer('p1');
+  match.addPlayer('p2');
+  match.markDisconnected('p2', 5000);
+  assert.equal(match.players.get('p2').connected, false);
+  assert.equal(match.players.get('p2').disconnectedAt, 5000);
+  match.reconnectPlayer('p2');
+  assert.equal(match.players.get('p2').connected, true);
+  assert.equal(match.players.get('p2').disconnectedAt, null);
+});
+
+test('eliminated player cannot reconnect into a match', () => {
+  const match = new MatchState();
+  match.addPlayer('p1');
+  match.players.get('p1').alive = false;
+  assert.throws(() => match.reconnectPlayer('p1'), /cannot rejoin/);
+});

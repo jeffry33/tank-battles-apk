@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { MatchState, MATCH_RULES } from '../match-state.js';
+import { chooseBotShot } from '../bot-controller.js';
 
 function combatMatch(mode = MATCH_RULES.modes.FFA) {
   const match = new MatchState(mode);
@@ -270,4 +271,28 @@ test('match snapshot exposes per-player combat statistics and stable match id', 
   const shooter = match.snapshot().players.find(player => player.id === 'p1');
   assert.equal(shooter.shotsFired, 1);
   assert.ok(shooter.damageDealt >= 0);
+});
+
+
+test('AI controller selects the nearest valid enemy and returns a bounded shot', () => {
+  const match = combatMatch();
+  const bot = match.players.get('p1');
+  bot.isBot = true;
+  match.players.get('p2').x = bot.x + 18;
+  match.players.get('p2').z = bot.z + 2;
+  const shot = chooseBotShot(match, bot);
+  assert.equal(shot.targetId, 'p2');
+  assert.equal(shot.weapon, 'standard');
+  assert.ok(shot.power >= 25 && shot.power <= 100);
+  assert.equal(chooseBotShot(match, match.players.get('p2')), null);
+});
+
+test('AI controller never targets a teammate in Team Battle', () => {
+  const match = combatMatch(MATCH_RULES.modes.TEAMS);
+  const bot = match.players.get('p1');
+  bot.isBot = true;
+  match.players.get('p3').x = bot.x + 2;
+  match.players.get('p3').z = bot.z;
+  const shot = chooseBotShot(match, bot);
+  assert.notEqual(shot.targetId, 'p3');
 });

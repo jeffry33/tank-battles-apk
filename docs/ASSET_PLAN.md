@@ -61,3 +61,48 @@ Before adding any downloaded asset to the repository:
 ## Current state
 
 No external production asset is confirmed integrated yet. Existing visuals remain procedural placeholders in `src/main.js`, `src/frozen-river.js`, and `src/destructible-world.js`.
+
+
+## Candidate shortlist researched for the realistic + mixed-budget direction
+
+These are candidates, not approved/integrated files. Verify the exact download contents, current price, and license at purchase/download time.
+
+### Tank hero model candidates
+
+1. **Sketchfab — Centurions Tank by Avishkar Kadam**
+   - Listing: https://sketchfab.com/3d-models/centurions-tank-e8c9856a6c384d7d9598ad29f39e5734
+   - Listing states 120.1k triangles and 4K PBR maps; downloadable; CC BY.
+   - Attribution is mandatory. Confirm the model's hierarchy and moving turret/barrel pivots before adopting it. 120k triangles and 4K maps require mobile LODs and texture downscaling.
+2. **Polyfork — Medium Tank**
+   - Listing: https://polyfork.dev/asset/medium-tank-65da6b
+   - Free GLB is listed at 2,534 triangles; an HD edition is listed at 9,142 triangles / 48 materials, with animated turret, gun, hatch, sprockets and wheels. Commercial use is stated as allowed without attribution.
+   - The low-poly presentation may not meet the desired realistic hero-asset bar; use only as a technical rig/pivot test unless visual inspection approves it.
+3. **Fab — Game Ready Modern Main Battle Tank Military Vehicle 4K PBR**
+   - Listing: https://www.fab.com/listings/327eab79-7c75-423e-a439-96eaa970d66b
+   - Listing describes about 150k triangles, 4K PBR maps and GLB/FBX/OBJ/BLEND formats. Price and selected license need confirmation on the listing before purchase. Rig/pivot structure also needs inspection.
+
+### Environment texture candidates
+
+- **Snow 01** — https://polyhaven.com/a/snow_01 — CC0 PBR snow, downloadable in multiple resolutions.
+- **Snow 02** — https://polyhaven.com/a/snow_02 — CC0 fresh powder snow.
+- **Snow Floor** — https://polyhaven.com/a/snow_floor — CC0 compacted/dirtier snow.
+- **Snow Field HDRI** — https://polyhaven.com/a/snow_field — CC0 winter lighting reference.
+- **Pine Tree 01** — https://polyhaven.com/a/pine_tree_01 — CC0, but the listing's full source download is extremely large and high-poly; do not ship this raw version to Android. Find a reduced LOD or use it as a high-detail source for optimization.
+
+### Additional environment / prop sources
+
+- **WWII Tank Pack (MetaWorldOS)** — https://metaworldos.itch.io/wwii-tank-pack-glb-models — CC0, GLB, PBR, but the full ZIP is listed at 809 MB and the models are low-poly. Do not download the entire pack into the Android runtime; inspect individual files and only select what is useful.
+- **Poly Haven license** — https://polyhaven.com/license — all listed assets CC0, including commercial use.
+- **Quaternius license** — https://quaternius.com/license.html — commercial use and modification allowed; do not redistribute source assets standalone.
+
+### Integration gate
+
+Do not replace the player tank until a candidate passes:
+- visible review of front/side/rear and texture quality;
+- separate turret and barrel pivots or a rig that can be controlled by code;
+- correct forward axis and real-world scale;
+- a mobile LOD budget (target roughly 20k–60k triangles for the active tank LOD, subject to profiling);
+- 1–2 material sets where practical, 1K–2K textures for mobile LOD, 4K reserved for optional high-end tier;
+- clear license proof and attribution file if required.
+
+A visually realistic static tank is not enough for this game: turret rotation, barrel elevation and preferably track animation must work independently. Do not purchase a candidate or claim integration without the user's explicit purchase approval and an actual file review.

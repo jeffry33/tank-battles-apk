@@ -122,10 +122,17 @@ export class MatchState {
       x += vx * step;
       y += vy * step - 0.5 * gravity * step * step;
       z += vz * step;
-      // Simple tank hit test; terrain and static-object collision are future work.
+      // Server-side collision checks: tanks first, then intact registered arena props.
       const hit = [...this.players.values()].find(target => target.alive && target.id !== id &&
         Math.hypot(target.x - x, target.z - z) < 1.6 && Math.abs(y - 0.8) < 1.6);
       if (hit) { impactReason = 'tank'; break; }
+      const objectHit = [...this.destructibles.values()].find(object => object.alive &&
+        Math.hypot(object.x - x, object.y - y, object.z - z) <= object.radius);
+      if (objectHit) {
+        x = objectHit.x; y = objectHit.y; z = objectHit.z;
+        impactReason = 'object';
+        break;
+      }
       if (y <= 0) { y = 0; break; }
       if (Math.abs(x) > MATCH_RULES.arenaLimit || Math.abs(z) > MATCH_RULES.arenaLimit) {
         impactReason = 'boundary'; break;

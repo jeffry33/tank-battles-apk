@@ -1,6 +1,7 @@
 import * as pc from 'playcanvas';
 import { ArtilleryCombat } from './combat.js';
 import { buildFrozenRiverArena } from './frozen-river.js';
+import { DestructibleWorld } from './destructible-world.js';
 import './style.css';
 
 const canvas = document.getElementById('application-canvas');
@@ -132,7 +133,8 @@ aimPad.addEventListener('pointerdown',e=>{aimPointer=e.pointerId;lastAimX=e.clie
 aimPad.addEventListener('pointermove',e=>{if(e.pointerId!==aimPointer)return;turretYaw-=(e.clientX-lastAimX)*0.45;lastAimX=e.clientX;lastAimY=e.clientY;});
 aimPad.addEventListener('pointerup',e=>{if(e.pointerId===aimPointer)aimPointer=null;});
 const message=document.getElementById('message');
-const combat = new ArtilleryCombat(app, tank, turret, camera, message);
+const destructibleWorld = new DestructibleWorld(app, message);
+const combat = new ArtilleryCombat(app, tank, turret, camera, message, destructibleWorld);
 app.on('update', dt => {
   shotCooldown=Math.max(0,shotCooldown-dt);
   const forward = -moveY*dt*7;

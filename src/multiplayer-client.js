@@ -6,6 +6,7 @@ export class MultiplayerClient {
     this.socket = null;
     this.playerId = null;
     this.roomId = null;
+    this.hostId = null;
   }
 
   connect(url, roomId = 'quick-match', mode = 'free-for-all', displayName = 'Commander') {
@@ -27,6 +28,7 @@ export class MultiplayerClient {
         if (message.type === 'joined') {
           this.playerId = message.playerId;
           this.roomId = message.roomId;
+          this.hostId = message.state?.hostId || null;
           this.onStatus('Joined room ' + this.roomId);
           if (message.state) this.onState(message.state);
         } else if (message.type === 'state') {

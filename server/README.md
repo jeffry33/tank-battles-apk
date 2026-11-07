@@ -14,7 +14,7 @@ npm start
 
 Default port: 2567. Set `PORT` on the hosting platform if required.
 
-## Lobby and match start\n\nThe first player joining a room becomes its host. Only that host can start deployment, and at least two players must be present. The HUD exposes Free For All and Team Battle (2v2) room modes and displays room occupancy/host status. This is a private-room foundation, not automatic matchmaking.\n\n## Client messages
+## Lobby and match start\n\nThe deployment phase lasts 30 seconds. Players can submit their server-assigned safe spawn coordinate with the LAND action; when everyone lands, combat begins. If the timer expires, unlanded players are marked landed at their assigned safe spawn. The client currently shows a simple procedural parachute/tank proxy during deployment; this is a gameplay placeholder, not the final cargo-plane sequence.\n\nThe first player joining a room becomes its host. Only that host can start deployment, and at least two players must be present. The HUD exposes Free For All and Team Battle (2v2) room modes and displays room occupancy/host status. This is a private-room foundation, not automatic matchmaking.\n\n## Client messages
 
 - `{ "type":"join", "roomId":"room-01", "mode":"free-for-all", "displayName":"Player" }`
 - `{ "type":"start-deployment" }`

@@ -195,3 +195,22 @@ test('cluster bomb resolves four server-authoritative submunitions', () => {
   assert.equal(result.impact.submunitionPoints.length, 4);
   assert.equal(result.shot.weapon, 'cluster');
 });
+
+
+test('disconnected player is eliminated after the reconnect grace period', () => {
+  const match = combatMatch();
+  match.markDisconnected('p1', 5000);
+  assert.deepEqual(match.expireDisconnectedPlayers(94999, 90000), []);
+  assert.deepEqual(match.expireDisconnectedPlayers(95000, 90000), ['p1']);
+  assert.equal(match.players.get('p1').alive, false);
+  assert.equal(match.currentPlayerId(), 'p2');
+});
+
+test('disconnected player can reconnect before the grace period expires', () => {
+  const match = combatMatch();
+  match.markDisconnected('p2', 5000);
+  assert.deepEqual(match.expireDisconnectedPlayers(94000, 90000), []);
+  match.reconnectPlayer('p2');
+  assert.equal(match.players.get('p2').alive, true);
+  assert.deepEqual(match.expireDisconnectedPlayers(100000, 90000), []);
+});

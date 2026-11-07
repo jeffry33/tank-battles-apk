@@ -428,7 +428,7 @@ const multiplayer = new MultiplayerClient({
       }
       if (startButton) {
         const connected = (state.players || []).filter(player => player.connected !== false);
-        startButton.disabled = !host || connected.length < 2 || !connected.every(player => player.ready) || state.status !== 'waiting';
+        startButton.disabled = !host || connected.length < 1 || !connected.every(player => player.ready) || state.status !== 'waiting';
       }
     }
     networkStatus.textContent = 'ROOM ' + state.status.toUpperCase() + ' · ' + count + '/4 PLAYERS · ' + turn;

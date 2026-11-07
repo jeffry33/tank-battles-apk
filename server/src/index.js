@@ -6,6 +6,7 @@ import { createMessageRateLimiter } from '../rate-limit.js';
 const PORT = Number(process.env.PORT || 2567);
 const wss = new WebSocketServer({ port: PORT, maxPayload: 16 * 1024 });
 const rooms = new Map();
+const RECONNECT_GRACE_MS = 90000;
 
 function send(socket, type, payload = {}) {
   if (socket.readyState === socket.OPEN) socket.send(JSON.stringify({ type, ...payload }));
@@ -22,7 +23,7 @@ function publicState(room) {
 function getRoom(roomId, mode) {
   let room = rooms.get(roomId);
   if (!room) {
-    room = { id: roomId, match: new MatchState(mode), clients: new Set(), playerSockets: new Map(), reconnectTokens: new Map() };
+    room = { id: roomId, match: new MatchState(mode), clients: new Set(), playerSockets: new Map(), reconnectTokens: new Map(), emptySince: null };
     rooms.set(roomId, room);
   }
   return room;
@@ -67,6 +68,7 @@ wss.on('connection', socket => {
           reconnectToken = randomUUID();
           room.reconnectTokens.set(playerId, reconnectToken);
         }
+        room.emptySince = null;
         room.clients.add(socket);
         room.playerSockets.set(playerId, socket);
         socket.room = room;
@@ -127,16 +129,25 @@ wss.on('connection', socket => {
       room.match.markDisconnected(socket.playerId);
       broadcast(room, 'state', { state: publicState(room) });
     }
-    // Keep the room and player slot so the same client can resume with its private token.
-    if (room.clients.size === 0 && room.match.status === 'waiting' && room.match.players.size === 0) rooms.delete(room.id);
+    // Retain the room briefly so a dropped mobile connection can resume its session.
+    if (room.clients.size === 0) room.emptySince = Date.now();
   });
 });
 
 
 // Authoritative room clocks: deployment fallback and turn expiration are processed on the server.
 setInterval(() => {
-  for (const room of rooms.values()) {
-    const result = room.match.tick(Date.now());
+  const now = Date.now();
+  for (const [roomId, room] of rooms) {
+    if (room.clients.size === 0 && room.emptySince !== null &&
+        now - room.emptySince >= RECONNECT_GRACE_MS && room.match.status === 'waiting') {
+      rooms.delete(roomId);
+      continue;
+    }
+    const expired = room.match.expireDisconnectedPlayers(now, RECONNECT_GRACE_MS);
+    for (const playerId of expired) room.reconnectTokens.delete(playerId);
+    if (expired.length) broadcast(room, 'state', { state: publicState(room) });
+    const result = room.match.tick(now);
     if (result) {
       broadcast(room, 'phase-event', { event: result.event });
       broadcast(room, 'state', { state: result.state });

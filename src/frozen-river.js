@@ -52,7 +52,7 @@ export function buildFrozenRiverArena(app) {
     primitive(root, 'Bridge rail ' + side, 'box', [side * 8.4, 1.15, 8], [0.38, 1.1, 7], metal);
     for (let p = -1; p <= 1; p++) primitive(root, 'Bridge pier', 'box', [side * 5.2, -0.4, 8 + p * 2.4], [0.8, 2.4, 0.8], concrete);
   }
-  for ((let z = 5; z <= 11; z += 1.5)) primitive(root, 'Bridge plank', 'box', [0, 0.77, z], [17.2, 0.08, 0.12], concrete);
+  for (let z = 5; z <= 11; z += 1.5) primitive(root, 'Bridge plank', 'box', [0, 0.77, z], [17.2, 0.08, 0.12], concrete);
 
   // Bunkers on both banks with visible firing slits.
   for (const side of [-1, 1]) {

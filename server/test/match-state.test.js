@@ -55,3 +55,12 @@ test('team match with no surviving players ends with no winner', () => {
   assert.equal(match.status, 'finished');
   assert.equal(match.winner, null);
 });
+
+
+test('Frozen River destructible registry is initialized consistently on the server', () => {
+  const match = new MatchState();
+  assert.equal(match.destructibles.size, 14);
+  assert.equal(match.destructibles.get('bunker-west').hp, 160);
+  assert.equal(match.destructibles.get('bridge-rail-east').hp, 65);
+  assert.equal(match.destructibles.get('supply-crate-8').alive, true);
+});

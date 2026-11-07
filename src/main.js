@@ -1,5 +1,6 @@
 import * as pc from 'playcanvas';
 import { ArtilleryCombat } from './combat.js';
+import { buildFrozenRiverArena } from './frozen-river.js';
 import './style.css';
 
 const canvas = document.getElementById('application-canvas');
@@ -55,14 +56,8 @@ function cylinder(parent, name, pos, scale, mat) {
   return e;
 }
 
-// Temporary arena: a visual blockout, to be replaced by production terrain and purchased/licensed assets.
-box(app.root, 'Battlefield', [0,-0.35,0], [90,0.6,90], groundMat);
-for (let i=0;i<9;i++) {
-  const ridge = box(app.root, 'Snow Ridge '+i, [-38 + i*9.5, 2.0, -36], [12,5 + (i%3)*2,9], snowMat);
-  ridge.setEulerAngles(0, (i%2)*8, 0);
-}
-box(app.root, 'River Bed', [0,-0.02,0], [9,0.08,88], material([0.12,0.24,0.31],0.3,0.8));
-box(app.root, 'Bridge', [0,0.18,5], [15,0.35,5], material([0.34,0.31,0.26],0.1,0.3));
+// Expanded procedural Frozen River arena.
+buildFrozenRiverArena(app);
 
 const tank = new pc.Entity('Player Tank');
 app.root.addChild(tank);
@@ -104,7 +99,7 @@ const combat = new ArtilleryCombat(app, tank, turret, camera, message);
 app.on('update', dt => {
   shotCooldown=Math.max(0,shotCooldown-dt);
   const forward = -moveY*dt*7;
-  tank.translateLocal(moveX*dt*7,0,forward);
+  if (!combat.turnLocked) tank.translateLocal(moveX*dt*7,0,forward);
   if (!combat.turnLocked) turret.setEulerAngles(0,turretYaw,0);
   const current = camera.getPosition();
   const desired = tank.getPosition().clone().add(new pc.Vec3(0,7,12));

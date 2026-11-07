@@ -1,8 +1,9 @@
-// Minimal server-authoritative match state for a future Colyseus/WebSocket room.
-// This module is intentionally transport-agnostic; clients must never decide damage or turns.
+// Match rules and server-owned player state. Coordinates use the arena's local X/Z plane.
 export const MATCH_RULES = Object.freeze({
   maxPlayers: 4,
   turnSeconds: 60,
+  arenaLimit: 48,
+  movementPerTurn: 8,
   modes: Object.freeze({ FFA: 'free-for-all', TEAMS: 'team-battle' })
 });
 
@@ -23,9 +24,14 @@ export class MatchState {
     if (this.players.size >= MATCH_RULES.maxPlayers) throw new Error('Match is full');
     if (this.players.has(id)) throw new Error('Player already joined');
     const team = this.mode === MATCH_RULES.modes.TEAMS ? this.players.size % 2 : null;
+    const spawn = [
+      { x: -30, z: -30 }, { x: 30, z: -30 },
+      { x: -30, z: 30 }, { x: 30, z: 30 }
+    ][this.players.size];
     this.players.set(id, {
       id, displayName: String(displayName).slice(0, 20), team,
-      hp: 100, alive: true, landed: false, x: 0, z: 0
+      hp: 100, alive: true, landed: false,
+      x: spawn.x, z: spawn.z, yaw: 0, movedThisTurn: 0
     });
     return this.snapshot();
   }
@@ -34,7 +40,7 @@ export class MatchState {
     const player = this.requirePlayer(id);
     if (this.status !== 'deploying') throw new Error('Not in deployment phase');
     if (!valid || !Number.isFinite(x) || !Number.isFinite(z)) throw new Error('Invalid landing location');
-    if (Math.abs(x) > 48 || Math.abs(z) > 48 || Math.abs(x) < 7) throw new Error('Landing outside safe zone');
+    if (Math.abs(x) > MATCH_RULES.arenaLimit || Math.abs(z) > MATCH_RULES.arenaLimit || Math.abs(x) < 7) throw new Error('Landing outside safe zone');
     player.x = x; player.z = z; player.landed = true;
     if ([...this.players.values()].every(p => p.landed)) this.beginCombat(Date.now());
     return this.snapshot();
@@ -54,11 +60,29 @@ export class MatchState {
   }
 
   startTurn(now = Date.now()) {
-    const alive = this.turnOrder.filter(id => this.players.get(id)?.alive);
-    this.turnOrder = alive;
+    this.turnOrder = this.turnOrder.filter(id => this.players.get(id)?.alive);
     if (this.isMatchOver()) return this.finishMatch();
     this.turnIndex %= Math.max(1, this.turnOrder.length);
+    const current = this.players.get(this.currentPlayerId());
+    if (current) current.movedThisTurn = 0;
     this.turnDeadline = now + MATCH_RULES.turnSeconds * 1000;
+  }
+
+  updateMovement(id, x, z, yaw, now = Date.now()) {
+    if (this.status !== 'combat') throw new Error('Match is not in combat');
+    if (this.currentPlayerId() !== id) throw new Error('It is not this player\'s turn');
+    if (now > this.turnDeadline) throw new Error('Turn expired');
+    if (![x, z, yaw].every(Number.isFinite)) throw new Error('Invalid movement values');
+    const player = this.requirePlayer(id);
+    if (!player.alive) throw new Error('Tank is eliminated');
+    const dx = x - player.x, dz = z - player.z;
+    const distance = Math.hypot(dx, dz);
+    if (distance > 1.25) throw new Error('Movement update exceeds allowed step');
+    if (Math.abs(x) > MATCH_RULES.arenaLimit || Math.abs(z) > MATCH_RULES.arenaLimit) throw new Error('Arena boundary reached');
+    if (player.movedThisTurn + distance > MATCH_RULES.movementPerTurn) throw new Error('Movement allowance used');
+    player.x = x; player.z = z; player.yaw = ((yaw % 360) + 360) % 360;
+    player.movedThisTurn += distance;
+    return this.snapshot();
   }
 
   submitShot(id, shot, now = Date.now()) {
@@ -66,9 +90,13 @@ export class MatchState {
     if (this.currentPlayerId() !== id) throw new Error('It is not this player\'s turn');
     if (now > this.turnDeadline) throw new Error('Turn expired');
     if (!shot || !Number.isFinite(shot.yaw) || !Number.isFinite(shot.elevation) || !Number.isFinite(shot.power)) throw new Error('Invalid shot');
-    const elevation = Math.max(10, Math.min(80, shot.elevation));
-    const power = Math.max(20, Math.min(100, shot.power));
-    return { playerId: id, yaw: shot.yaw, elevation, power, weapon: ['standard','heavy','guided','cluster'].includes(shot.weapon) ? shot.weapon : 'standard' };
+    return {
+      playerId: id,
+      yaw: ((shot.yaw % 360) + 360) % 360,
+      elevation: Math.max(10, Math.min(80, shot.elevation)),
+      power: Math.max(20, Math.min(100, shot.power)),
+      weapon: ['standard','heavy','guided','cluster'].includes(shot.weapon) ? shot.weapon : 'standard'
+    };
   }
 
   resolveDamage(targetId, damage, now = Date.now()) {
@@ -91,9 +119,7 @@ export class MatchState {
     this.startTurn(now);
   }
 
-  currentPlayerId() {
-    return this.turnOrder[this.turnIndex] || null;
-  }
+  currentPlayerId() { return this.turnOrder[this.turnIndex] || null; }
 
   requirePlayer(id) {
     const player = this.players.get(id);

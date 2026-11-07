@@ -136,11 +136,20 @@ aimPad.addEventListener('pointerup',e=>{if(e.pointerId===aimPointer)aimPointer=n
 const message=document.getElementById('message');
 const destructibleWorld = new DestructibleWorld(app, message);
 const combat = new ArtilleryCombat(app, tank, turret, camera, message, destructibleWorld);
+let networkMoveAccumulator = 0;
 app.on('update', dt => {
   shotCooldown=Math.max(0,shotCooldown-dt);
+  networkMoveAccumulator += dt;
   const forward = -moveY*dt*7;
   if (!combat.turnLocked) tank.translateLocal(moveX*dt*7,0,forward);
   if (!combat.turnLocked) turret.setEulerAngles(0,turretYaw,0);
+  if (networkMoveAccumulator >= 0.12) {
+    networkMoveAccumulator = 0;
+    if (multiplayer.playerId && !combat.turnLocked) {
+      const position = tank.getPosition();
+      multiplayer.move(position.x, position.z, turretYaw);
+    }
+  }
   const current = camera.getPosition();
   const desired = tank.getPosition().clone().add(new pc.Vec3(0,7,12));
   camera.setPosition(current.lerp(desired,Math.min(1,dt*3)));
@@ -152,12 +161,41 @@ document.getElementById('message').textContent='TANK BATTLE · Visual foundation
 
 // Optional network integration. Enter the publicly hosted WebSocket URL on the HUD.
 const networkStatus = document.getElementById('message');
+const remoteTanks = new Map();
 const multiplayer = new MultiplayerClient({
   onStatus: status => { networkStatus.textContent = status; },
   onState: state => {
     const count = state.players?.length ?? 0;
     const turn = state.currentPlayerId === multiplayer.playerId ? 'YOUR TURN' : 'OPPONENT TURN';
     networkStatus.textContent = 'ROOM ' + state.status.toUpperCase() + ' · ' + count + '/4 PLAYERS · ' + turn;
+    for (const player of (state.players || [])) {
+      if (player.id === multiplayer.playerId) {
+        if (state.status === 'combat') {
+          tank.setPosition(player.x, tank.getPosition().y, player.z);
+          turretYaw = player.yaw || 0;
+          turret.setEulerAngles(0, turretYaw, 0);
+        }
+        continue;
+      }
+      let remote = remoteTanks.get(player.id);
+      if (!remote) {
+        remote = new pc.Entity('Remote Tank ' + player.displayName);
+        const hull = new pc.Entity('Remote Hull');
+        hull.addComponent('render', { type: 'box', material: material([0.35,0.16,0.12],0.25,0.4) });
+        hull.setLocalScale(2.7,1.1,3.5);
+        remote.addChild(hull);
+        const turretMesh = new pc.Entity('Remote Turret');
+        turretMesh.addComponent('render', { type: 'box', material: material([0.22,0.12,0.1],0.3,0.45) });
+        turretMesh.setLocalPosition(0,0.8,0);
+        turretMesh.setLocalScale(1.5,0.55,1.6);
+        remote.addChild(turretMesh);
+        app.root.addChild(remote);
+        remoteTanks.set(player.id, remote);
+      }
+      remote.setPosition(player.x, 0.7, player.z);
+      remote.setEulerAngles(0, player.yaw || 0, 0);
+      remote.enabled = player.alive;
+    }
   },
   onShot: data => { networkStatus.textContent = 'PLAYER SHOT RECEIVED · ' + data.playerId; }
 });

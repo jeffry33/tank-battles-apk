@@ -104,4 +104,16 @@ wss.on('connection', socket => {
   });
 });
 
+
+// Authoritative room clocks: deployment fallback and turn expiration are processed on the server.
+setInterval(() => {
+  for (const room of rooms.values()) {
+    const result = room.match.tick(Date.now());
+    if (result) {
+      broadcast(room, 'phase-event', { event: result.event });
+      broadcast(room, 'state', { state: result.state });
+    }
+  }
+}, 250);
+
 wss.on('listening', () => console.log(`TANK BATTLE WebSocket server listening on :${PORT}`));

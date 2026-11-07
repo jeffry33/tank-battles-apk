@@ -1,4 +1,5 @@
 import * as pc from 'playcanvas';
+import { ARENA_DESTRUCTIBLES } from './arena-destructibles.js';
 
 export class DestructibleWorld {
   constructor(app, message) {
@@ -25,47 +26,41 @@ export class DestructibleWorld {
   }
 
   registerSceneObjects() {
+    const definitions = new Map(ARENA_DESTRUCTIBLES.map(item => [item.id, item]));
     const candidates = this.app.root.findComponents('render');
     for (const component of candidates) {
       const entity = component.entity;
-      const n = entity.name.toLowerCase();
-      if (/bunker|sandbag|supply crate|alpine boulder|bridge plank|bridge rail/.test(n)) {
-        this.objects.push({
-          entity,
-          name: entity.name,
-          hp: /bunker/.test(n) ? 160 : /bridge/.test(n) ? 65 : 45,
-          maxHp: /bunker/.test(n) ? 160 : /bridge/.test(n) ? 65 : 45,
-          radius: /bunker/.test(n) ? 5 : 2.1
-        });
-      }
+      const id = entity.arenaDestructibleId;
+      const definition = id ? definitions.get(id) : null;
+      if (!definition) continue;
+      this.objects.push({
+        id,
+        entity,
+        name: entity.name,
+        hp: definition.hp,
+        maxHp: definition.hp,
+        radius: definition.radius,
+        initialScale: entity.getLocalScale().clone()
+      });
     }
   }
 
   applyAuthoritativeImpacts(impacts = []) {
+    const byId = new Map(this.objects.map(item => [item.id, item]));
     for (const impact of impacts) {
-      const [kind, ...rest] = impact.id.split('-');
-      const expected = impact.id.startsWith('bunker-') ? 'bunker'
-        : impact.id.startsWith('sandbag-') ? 'sandbag'
-        : impact.id.startsWith('bridge-rail-') ? 'bridge rail'
-        : 'supply crate';
-      const parts = impact.id.startsWith('bunker-') ? (impact.id.endsWith('west') ? [-20, 1.2, 13] : [20, 1.2, 13])
-        : impact.id.startsWith('sandbag-') ? (impact.id.endsWith('west') ? [-13, 0.55, 5] : [13, 0.55, 5])
-        : impact.id.startsWith('bridge-rail-') ? (impact.id.endsWith('west') ? [-8.4, 1.15, 8] : [8.4, 1.15, 8])
-        : (() => { const n = Number(rest.join('-').replace('crate-', '')) - 1; return [n < 4 ? -23.6 + n * 2.4 : 16.4 + (n - 4) * 2.4, 0.65, n < 4 ? -20 : 24]; })();
-      const target = this.objects
-        .filter(item => item.name.toLowerCase().includes(expected))
-        .sort((a, b) => a.entity.getPosition().distance(new pc.Vec3(...parts)) - b.entity.getPosition().distance(new pc.Vec3(...parts)))[0];
+      const target = byId.get(impact.id);
       if (!target) continue;
-      target.hp = impact.hp;
-      if (!impact.alive && target.entity.enabled) this.destroyObject(target);
-      else if (target.hp > 0) {
-        const ratio = Math.max(0.82, target.hp / target.maxHp);
-        target.entity.setLocalScale(
-          target.entity.getLocalScale().x * ratio,
-          target.entity.getLocalScale().y * ratio,
-          target.entity.getLocalScale().z * ratio
-        );
+      target.hp = Math.max(0, Number(impact.hp) || 0);
+      if (!impact.alive || target.hp <= 0) {
+        if (target.entity.enabled) this.destroyObject(target);
+        continue;
       }
+      const ratio = Math.max(0.82, target.hp / target.maxHp);
+      target.entity.setLocalScale(
+        target.initialScale.x * ratio,
+        target.initialScale.y * ratio,
+        target.initialScale.z * ratio
+      );
     }
   }
 
@@ -81,11 +76,14 @@ export class DestructibleWorld {
       item.hp -= dealt;
       hitCount++;
       if (item.hp <= 0) this.destroyObject(item);
-      else item.entity.setLocalScale(
-        item.entity.getLocalScale().x * 0.985,
-        item.entity.getLocalScale().y * 0.985,
-        item.entity.getLocalScale().z * 0.985
-      );
+      else {
+        const ratio = Math.max(0.82, item.hp / item.maxHp);
+        item.entity.setLocalScale(
+          item.initialScale.x * ratio,
+          item.initialScale.y * ratio,
+          item.initialScale.z * ratio
+        );
+      }
     }
     this.makeImpactFx(position, radius);
     if (hitCount) this.message.textContent = 'OBJECT IMPACT · ' + hitCount + ' target(s)';

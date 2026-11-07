@@ -402,6 +402,31 @@ const multiplayer = new MultiplayerClient({
       if (startButton) startButton.disabled = !host || count < 2 || state.status !== 'waiting';
     }
     networkStatus.textContent = 'ROOM ' + state.status.toUpperCase() + ' · ' + count + '/4 PLAYERS · ' + turn;
+    const roster = document.getElementById('player-list');
+    if (roster) {
+      roster.replaceChildren();
+      for (const player of (state.players || [])) {
+        const row = document.createElement('div');
+        const active = player.id === state.currentPlayerId;
+        const connection = player.connected === false ? 'OFFLINE' : !player.alive ? 'ELIMINATED' : player.landed ? 'READY' : 'AIRBORNE';
+        const team = player.team === null || player.team === undefined ? 'FFA' : 'TEAM ' + (player.team + 1);
+        row.className = 'player-row' + (active ? ' active' : '') + (player.connected === false ? ' offline' : '');
+        row.textContent = (active ? '▶ ' : '') + player.displayName + ' · ' + team + ' · HP ' + player.hp + ' · ' + connection;
+        roster.appendChild(row);
+      }
+    }
+    const resultPanel = document.getElementById('match-result');
+    if (resultPanel) {
+      if (state.status === 'finished') {
+        const winningPlayer = (state.players || []).find(player => player.id === state.winner);
+        resultPanel.textContent = state.winner === null ? 'DRAW · MATCH FINISHED'
+          : state.mode === 'team-battle' ? 'TEAM ' + (state.winner + 1) + ' WINS'
+          : (winningPlayer?.displayName || 'PLAYER') + ' WINS';
+        resultPanel.hidden = false;
+      } else {
+        resultPanel.hidden = true;
+      }
+    }
     for (const player of (state.players || [])) {
       if (player.id === multiplayer.playerId) {
         hasLandedNetwork = Boolean(player.landed);

@@ -257,3 +257,17 @@ test('solo host can fill the remaining seats with ready AI bots', () => {
   assert.ok([...match.players.values()].filter(p => p.isBot).every(p => p.landed));
   assert.equal(match.status, 'deploying');
 });
+
+
+test('match snapshot exposes per-player combat statistics and stable match id', () => {
+  const match = combatMatch();
+  const before = match.snapshot();
+  assert.ok(before.matchId);
+  assert.equal(before.players[0].shotsFired, 0);
+  assert.equal(before.players[0].damageDealt, 0);
+  assert.equal(before.players[0].eliminations, 0);
+  match.resolveShot('p1', { yaw: 0, elevation: 35, power: 70, weapon: 'standard' }, 2000);
+  const shooter = match.snapshot().players.find(player => player.id === 'p1');
+  assert.equal(shooter.shotsFired, 1);
+  assert.ok(shooter.damageDealt >= 0);
+});

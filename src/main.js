@@ -24,8 +24,37 @@ camera.lookAt(0, 0, 0);
 
 const sun = new pc.Entity('Sun');
 sun.addComponent('light', { type: 'directional', color: new pc.Color(1, 0.91, 0.78), intensity: 1.6, castShadows: true, shadowResolution: 1024 });
+
 sun.setEulerAngles(45, 35, 0);
 app.root.addChild(sun);
+
+// Runtime graphics presets. Pixel ratio controls the actual drawing-buffer resolution.
+const graphicsProfiles = {
+  high: { pixelRatio: 1.5, shadowResolution: 1024, shadows: true, farClip: 1200 },
+  balanced: { pixelRatio: 1.25, shadowResolution: 512, shadows: true, farClip: 850 },
+  low: { pixelRatio: 1, shadowResolution: 256, shadows: false, farClip: 550 }
+};
+const graphicsSelect = document.getElementById('graphics-quality');
+const graphicsStatus = document.getElementById('graphics-status');
+function applyGraphicsProfile(name) {
+  const profile = graphicsProfiles[name] || graphicsProfiles.high;
+  app.graphicsDevice.maxPixelRatio = Math.min(window.devicePixelRatio || 1, profile.pixelRatio);
+  sun.light.castShadows = profile.shadows;
+  sun.light.shadowResolution = profile.shadowResolution;
+  camera.camera.farClip = profile.farClip;
+  if (graphicsStatus) {
+    graphicsStatus.textContent = name.toUpperCase() + ' · ' +
+      Math.round(app.graphicsDevice.maxPixelRatio * 100) + '% render scale';
+  }
+}
+if (graphicsSelect) {
+  graphicsSelect.addEventListener('change', () => applyGraphicsProfile(graphicsSelect.value));
+  applyGraphicsProfile(graphicsSelect.value || 'high');
+} else {
+  applyGraphicsProfile('high');
+}
+let fpsFrameCount = 0;
+let fpsElapsed = 0;
 
 function material(color, metalness=0, gloss=0.35) {
   const m = new pc.StandardMaterial();
@@ -138,6 +167,15 @@ const destructibleWorld = new DestructibleWorld(app, message);
 const combat = new ArtilleryCombat(app, tank, turret, camera, message, destructibleWorld);
 let networkMoveAccumulator = 0;
 app.on('update', dt => {
+  fpsFrameCount++;
+  fpsElapsed += dt;
+  if (fpsElapsed >= 0.5) {
+    const fps = Math.round(fpsFrameCount / fpsElapsed);
+    const fpsElement = document.getElementById('fps-counter');
+    if (fpsElement) fpsElement.textContent = fps + ' FPS';
+    fpsFrameCount = 0;
+    fpsElapsed = 0;
+  }
   shotCooldown=Math.max(0,shotCooldown-dt);
   networkMoveAccumulator += dt;
   if (multiplayer.playerId && networkTurnDeadline > 0) {

@@ -1,0 +1,6 @@
+{
+  "appId": "com.tankbattle.game",
+  "appName": "TANK BATTLE",
+  "webDir": "dist",
+  "bundledWebRuntime": false
+}

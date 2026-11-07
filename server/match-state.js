@@ -73,7 +73,7 @@ export class MatchState {
 
   expireDisconnectedPlayers(now = Date.now(), graceMs = 90000) {
     const expired = [];
-    for ( (const player of this.players.values()) ) {
+    for (const player of this.players.values()) {
       if (!player.connected && player.disconnectedAt !== null &&
           now - player.disconnectedAt >= graceMs && player.alive) {
         player.alive = false;

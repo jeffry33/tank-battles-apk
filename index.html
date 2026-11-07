@@ -11,11 +11,12 @@
     <canvas id="application-canvas"></canvas>
     <div id="hud">
       <div class="brand">TANK <span>BATTLE</span></div>
-      <div class="status">VISUAL PROTOTYPE · FROZEN RIVER DEVELOPMENT</div>
+      <div class="status">FROZEN RIVER · ARTILLERY TEST BUILD</div>
+      <div class="combat-hud"><span id="tank-hp">HP 100/100</span><span id="turn-timer">TURN 60s</span></div>
       <div id="help">Drag the left pad to move · Drag AIM to rotate turret · FIRE to test</div>
       <div id="joystick"><div id="stick"></div></div>
       <div id="aim-pad">AIM</div>
-      <button id="fire">FIRE</button>
+      <div class="weapon-panel"><label>WEAPON <select id="weapon"><option value="standard">Standard Shell</option><option value="heavy">Heavy Shell</option><option value="cluster">Cluster Bomb</option></select></label><label>ELEVATION <span id="elevation-value">35°</span><input id="elevation" type="range" min="10" max="80" value="35"></label><label>POWER <span id="power-value">70%</span><input id="power" type="range" min="20" max="100" value="70"></label><button id="fire">FIRE</button><button id="end-turn">END TURN</button></div>
       <div id="message">Prototype ready</div>
     </div>
   </div>

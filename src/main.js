@@ -14,6 +14,10 @@ const app = new pc.Application(canvas, {
 app.setCanvasFillMode(pc.FILLMODE_FILL_WINDOW);
 app.setCanvasResolution(pc.RESOLUTION_AUTO);
 app.scene.ambientLight = new pc.Color(0.48, 0.52, 0.58);
+app.scene.fog = pc.FOG_LINEAR;
+app.scene.fogColor = new pc.Color(0.66, 0.75, 0.81);
+app.scene.fogStart = 72;
+app.scene.fogEnd = 210;
 app.start();
 
 const camera = new pc.Entity('Camera');
@@ -39,6 +43,8 @@ const graphicsStatus = document.getElementById('graphics-status');
 function applyGraphicsProfile(name) {
   const profile = graphicsProfiles[name] || graphicsProfiles.high;
   app.graphicsDevice.maxPixelRatio = Math.min(window.devicePixelRatio || 1, profile.pixelRatio);
+  app.setCanvasResolution(pc.RESOLUTION_AUTO);
+  app.resizeCanvas();
   sun.light.castShadows = profile.shadows;
   sun.light.shadowResolution = profile.shadowResolution;
   camera.camera.farClip = profile.farClip;

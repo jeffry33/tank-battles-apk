@@ -337,6 +337,26 @@ function createLandingMarker() {
 }
 let isMyNetworkTurn = false;
 let networkTurnDeadline = 0;
+const PROFILE_KEY = 'tank-battle-profile-v1';
+function readLocalProfile() {
+  try { return JSON.parse(localStorage.getItem(PROFILE_KEY)) || { xp: 0, matches: 0, wins: 0, losses: 0, processedMatches: [] }; }
+  catch { return { xp: 0, matches: 0, wins: 0, losses: 0, processedMatches: [] }; }
+}
+function xpForPlayer(player, won) {
+  return 50 + (won ? 100 : 0) + (player.eliminations || 0) * 25 + Math.floor((player.damageDealt || 0) / 10);
+}
+function applyMatchProgress(state, player) {
+  const profile = readLocalProfile();
+  if (profile.processedMatches.includes(state.matchId)) return { profile, earned: 0 };
+  const won = state.mode === 'team-battle' ? player.team === state.winner : player.id === state.winner;
+  const earned = xpForPlayer(player, won);
+  profile.xp += earned; profile.matches += 1;
+  if (won) profile.wins += 1; else profile.losses += 1;
+  profile.processedMatches = [...profile.processedMatches, state.matchId].slice(-100);
+  localStorage.setItem(PROFILE_KEY, JSON.stringify(profile));
+  return { profile, earned };
+}
+function profileLevel(xp) { let level = 1, remaining = xp; while (remaining >= level * 100) { remaining -= level * 100; level++; } return { level, into: remaining, next: level * 100 }; }
 const multiplayer = new MultiplayerClient({
   onStatus: status => { networkStatus.textContent = status; },
   onState: state => {
@@ -429,9 +449,14 @@ const multiplayer = new MultiplayerClient({
     if (resultPanel) {
       if (state.status === 'finished') {
         const winningPlayer = (state.players || []).find(player => player.id === state.winner);
-        resultPanel.textContent = state.winner === null ? 'DRAW · MATCH FINISHED'
+        const me = (state.players || []).find(player => player.id === multiplayer.playerId);
+        const won = Boolean(me && (state.mode === 'team-battle' ? me.team === state.winner : me.id === state.winner));
+        const progress = me ? applyMatchProgress(state, me) : { profile: readLocalProfile(), earned: 0 };
+        const level = profileLevel(progress.profile.xp);
+        const title = state.winner === null ? 'DRAW · MATCH FINISHED'
           : state.mode === 'team-battle' ? 'TEAM ' + (state.winner + 1) + ' WINS'
           : (winningPlayer?.displayName || 'PLAYER') + ' WINS';
+        resultPanel.textContent = title + (me ? ' · ' + (won ? 'VICTORY' : 'DEFEAT') + ' · +' + progress.earned + ' XP · LEVEL ' + level.level + ' · TOTAL XP ' + progress.profile.xp : '');
         resultPanel.hidden = false;
       } else {
         resultPanel.hidden = true;

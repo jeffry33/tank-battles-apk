@@ -9,6 +9,21 @@ export const MATCH_RULES = Object.freeze({
 
 import { ARENA_DESTRUCTIBLES } from '../src/arena-destructibles.js';
 
+export function isValidArenaPosition(x, z) {
+  if (!Number.isFinite(x) || !Number.isFinite(z)) return false;
+  if (Math.abs(x) > MATCH_RULES.arenaLimit || Math.abs(z) > MATCH_RULES.arenaLimit) return false;
+
+  // The center channel is deep water; the military bridge is the only crossing.
+  const onBridge = Math.abs(x) <= 8.9 && z >= 4.2 && z <= 11.8;
+  if (Math.abs(x) < 5.5 && !onBridge) return false;
+
+  // Avoid the footprint of the two bunkers and their snow-covered roofs.
+  for (const bx of [-20, 20]) {
+    if (Math.abs(x - bx) < 5.8 && Math.abs(z - 13) < 4.8) return false;
+  }
+  return true;
+}
+
 export class MatchState {
   constructor(mode = MATCH_RULES.modes.FFA) {
     if (!Object.values(MATCH_RULES.modes).includes(mode)) throw new Error('Unsupported game mode');
@@ -45,7 +60,7 @@ export class MatchState {
     const player = this.requirePlayer(id);
     if (this.status !== 'deploying') throw new Error('Not in deployment phase');
     if (!valid || !Number.isFinite(x) || !Number.isFinite(z)) throw new Error('Invalid landing location');
-    if (Math.abs(x) > MATCH_RULES.arenaLimit || Math.abs(z) > MATCH_RULES.arenaLimit || Math.abs(x) < 7) throw new Error('Landing outside safe zone');
+    if (!isValidArenaPosition(x, z)) throw new Error('Landing outside safe terrain or inside a blocked area');
     player.x = x; player.z = z; player.landed = true;
     if ([...this.players.values()].every(p => p.landed)) this.beginCombat(Date.now());
     return this.snapshot();
@@ -84,7 +99,7 @@ export class MatchState {
     const dx = x - player.x, dz = z - player.z;
     const distance = Math.hypot(dx, dz);
     if (distance > 1.25) throw new Error('Movement update exceeds allowed step');
-    if (Math.abs(x) > MATCH_RULES.arenaLimit || Math.abs(z) > MATCH_RULES.arenaLimit) throw new Error('Arena boundary reached');
+    if (!isValidArenaPosition(x, z)) throw new Error('Movement blocked by water, terrain, or arena boundary');
     if (player.movedThisTurn + distance > MATCH_RULES.movementPerTurn) throw new Error('Movement allowance used');
     player.x = x; player.z = z; player.yaw = ((yaw % 360) + 360) % 360;
     player.movedThisTurn += distance;

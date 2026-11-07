@@ -7,6 +7,8 @@ export const MATCH_RULES = Object.freeze({
   modes: Object.freeze({ FFA: 'free-for-all', TEAMS: 'team-battle' })
 });
 
+import { ARENA_DESTRUCTIBLES } from '../src/arena-destructibles.js';
+
 export class MatchState {
   constructor(mode = MATCH_RULES.modes.FFA) {
     if (!Object.values(MATCH_RULES.modes).includes(mode)) throw new Error('Unsupported game mode');
@@ -18,6 +20,7 @@ export class MatchState {
     this.status = 'waiting';
     this.winner = null;
     this.hostId = null;
+    this.destructibles = new Map(ARENA_DESTRUCTIBLES.map(item => [item.id, { ...item, alive: true }]));
   }
 
   addPlayer(id, displayName = 'Commander') {
@@ -131,6 +134,18 @@ export class MatchState {
     const radius = validated.weapon === 'heavy' ? 5.5 : validated.weapon === 'cluster' ? 4.8 : validated.weapon === 'guided' ? 4.5 : 4;
     const baseDamage = validated.weapon === 'heavy' ? 42 : validated.weapon === 'cluster' ? 26 : validated.weapon === 'guided' ? 34 : 30;
     const impacts = [];
+    const objectImpacts = [];
+    for (const object of this.destructibles.values()) {
+      if (!object.alive) continue;
+      const distance = Math.hypot(object.x - x, object.y - y, object.z - z);
+      const reach = radius + object.radius;
+      if (distance > reach) continue;
+      const damage = Math.max(0, Math.round(baseDamage * (1 - distance / reach)));
+      if (!damage) continue;
+      object.hp = Math.max(0, object.hp - damage);
+      if (object.hp === 0) object.alive = false;
+      objectImpacts.push({ id: object.id, hp: object.hp, alive: object.alive });
+    }
     const shooterTeam = shooter.team;
     for (const target of this.players.values()) {
       if (!target.alive || target.id === shooter.id) continue;
@@ -151,6 +166,7 @@ export class MatchState {
       shot: validated,
       impact: { x, y, z, reason: impactReason, flightSeconds: Number(t.toFixed(2)), radius },
       impacts,
+      objectImpacts,
       state: this.snapshot()
     };
   }

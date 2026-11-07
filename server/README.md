@@ -35,6 +35,6 @@ The server validates turn ownership, shot angle and power, simulates a ballistic
 - The projectile simulation uses a flat ground plane and simplified tank hitboxes; it does not collide with hills, bunkers, bridge geometry, or destructible terrain.
 - The browser client still has a local prototype firing simulation in parallel with the server result; final multiplayer presentation needs to be consolidated around server events.
 - Deployment landing UI/plane/parachute is not implemented; the server only accepts a submitted landing coordinate.
-- There is no automatic server timer loop yet; a trusted server scheduler must skip expired turns.
+- The server now runs a basic 250 ms room clock to auto-start combat after the 30-second deployment timeout (using each player's assigned safe spawn) and skip turns after 60 seconds. This scheduler is process-local and still needs production monitoring/recovery.
 - Disconnect/reconnect, authentication, room cleanup, matchmaking, anti-cheat hardening, persistence, monitoring, and public hosting are pending.
 - This service has not yet been load-tested or security-reviewed. Do not treat it as a production game backend.

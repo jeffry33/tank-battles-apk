@@ -41,6 +41,34 @@ export class DestructibleWorld {
     }
   }
 
+  applyAuthoritativeImpacts(impacts = []) {
+    for (const impact of impacts) {
+      const [kind, ...rest] = impact.id.split('-');
+      const expected = impact.id.startsWith('bunker-') ? 'bunker'
+        : impact.id.startsWith('sandbag-') ? 'sandbag'
+        : impact.id.startsWith('bridge-rail-') ? 'bridge rail'
+        : 'supply crate';
+      const parts = impact.id.startsWith('bunker-') ? (impact.id.endsWith('west') ? [-20, 1.2, 13] : [20, 1.2, 13])
+        : impact.id.startsWith('sandbag-') ? (impact.id.endsWith('west') ? [-13, 0.55, 5] : [13, 0.55, 5])
+        : impact.id.startsWith('bridge-rail-') ? (impact.id.endsWith('west') ? [-8.4, 1.15, 8] : [8.4, 1.15, 8])
+        : (() => { const n = Number(rest.join('-').replace('crate-', '')) - 1; return [n < 4 ? -23.6 + n * 2.4 : 16.4 + (n - 4) * 2.4, 0.65, n < 4 ? -20 : 24]; })();
+      const target = this.objects
+        .filter(item => item.name.toLowerCase().includes(expected))
+        .sort((a, b) => a.entity.getPosition().distance(new pc.Vec3(...parts)) - b.entity.getPosition().distance(new pc.Vec3(...parts)))[0];
+      if (!target) continue;
+      target.hp = impact.hp;
+      if (!impact.alive && target.entity.enabled) this.destroyObject(target);
+      else if (target.hp > 0) {
+        const ratio = Math.max(0.82, target.hp / target.maxHp);
+        target.entity.setLocalScale(
+          target.entity.getLocalScale().x * ratio,
+          target.entity.getLocalScale().y * ratio,
+          target.entity.getLocalScale().z * ratio
+        );
+      }
+    }
+  }
+
   applyImpact(position, radius, damage) {
     let hitCount = 0;
     for (const item of this.objects) {

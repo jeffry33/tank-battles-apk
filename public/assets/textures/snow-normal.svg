@@ -1,0 +1,3 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
+<defs><filter id="n"><feTurbulence type="fractalNoise" baseFrequency=".09" numOctaves="3" seed="11" stitchTiles="stitch"/><feColorMatrix values=".06 0 0 0 .47 .06 0 0 0 .48 .06 0 0 0 .98 0 0 0 1 0"/></filter></defs><rect width="512" height="512" fill="#7f80fa"/><rect width="512" height="512" filter="url(#n)" opacity=".45"/>
+</svg>

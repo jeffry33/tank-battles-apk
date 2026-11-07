@@ -176,3 +176,17 @@ A source-code change is not considered complete until the relevant CI checks pas
 - Build and run the server container on a real hosting provider; no public server URL is configured.
 - Test HTTP health checks, secure WebSocket upgrades, solo AI match flow and human multiplayer from actual devices.
 - Add authentication, persistent accounts, database-backed profile and production anti-cheat before public launch.
+
+
+## Batch 13 — Early-playable AI improvement
+
+**Implemented in source**
+- Replaced the bot's single fixed-angle estimate with a deterministic ballistic search across legal elevation and power values.
+- The search uses the same muzzle height, gravity and simulation step as the authoritative server projectile resolver.
+- Bot targeting still excludes teammates in Team Battle and now safely returns no shot when no eligible enemy remains.
+- Added tests for bounded ballistic choices and the no-valid-target case.
+
+**Still needs implementation / validation**
+- This improves aiming logic but does not prove bots can reliably hit every target across obstacles and all arena positions.
+- Run the server CI suite and test a complete solo match in a real browser / Android WebView.
+- Bot movement, pickups, difficulty settings and tactical weapon choice remain future work.

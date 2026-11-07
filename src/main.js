@@ -355,6 +355,7 @@ const multiplayer = new MultiplayerClient({
   onShot: data => {
     if (data.impact) {
       spawnNetworkShot(data);
+      destructibleWorld.applyAuthoritativeImpacts(data.objectImpacts || []);
       const damageText = (data.impacts || []).map(hit => hit.damage + ' DMG').join(', ') || 'NO DAMAGE';
       networkStatus.textContent = 'IMPACT · ' + damageText + ' · ' + data.impact.flightSeconds + 's flight';
       const ownHit = (data.impacts || []).find(hit => hit.playerId === multiplayer.playerId);

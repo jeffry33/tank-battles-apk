@@ -1,9 +1,10 @@
 import { WebSocketServer } from 'ws';
 import { randomUUID } from 'node:crypto';
 import { MatchState, MATCH_RULES } from '../match-state.js';
+import { createMessageRateLimiter } from '../rate-limit.js';
 
 const PORT = Number(process.env.PORT || 2567);
-const wss = new WebSocketServer({ port: PORT });
+const wss = new WebSocketServer({ port: PORT, maxPayload: 16 * 1024 });
 const rooms = new Map();
 
 function send(socket, type, payload = {}) {
@@ -31,8 +32,10 @@ wss.on('connection', socket => {
   socket.id = randomUUID();
   socket.room = null;
   socket.playerId = null;
+  const allowMessage = createMessageRateLimiter({ limit: 50, windowMs: 10000 });
 
   socket.on('message', raw => {
+    if (!allowMessage()) return send(socket, 'error', { message: 'Message rate limit exceeded; slow down' });
     let message;
     try { message = JSON.parse(raw.toString()); }
     catch { return send(socket, 'error', { message: 'Invalid JSON message' }); }

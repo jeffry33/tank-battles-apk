@@ -192,5 +192,6 @@ test('cluster bomb resolves four server-authoritative submunitions', () => {
     yaw: 0, elevation: 35, power: 70, weapon: 'cluster'
   }, 2000);
   assert.equal(result.impact.submunitions, 4);
+  assert.equal(result.impact.submunitionPoints.length, 4);
   assert.equal(result.shot.weapon, 'cluster');
 });

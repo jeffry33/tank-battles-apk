@@ -131,3 +131,17 @@ A source-code change is not considered complete until the relevant CI checks pas
 **Still needs implementation / validation**
 - Add ready-up state, invite/share-room flow, matchmaking and a dedicated lobby screen.
 - Validate four clients and both FFA / 2v2 flows on real network connections.
+
+
+## Batch 13 — Solo play with server-controlled AI opponents
+
+**Implemented in source**
+- Starting a waiting lobby fills all remaining seats up to four with server-owned AI commanders.
+- AI seats are automatically ready and use the same team assignment, landing, turn order, HP, damage and elimination rules as human players.
+- AI turns select the nearest valid enemy, estimate a ballistic shot and submit it through the same authoritative shot resolver.
+- AI shot results are broadcast through the normal multiplayer event, so clients render them as regular opponent shots.
+
+**Still needs implementation / validation**
+- Tune AI accuracy and difficulty levels; current controller uses one baseline difficulty and simple ballistic estimation.
+- AI movement, pickups, tactical positioning and special-weapon decisions are not implemented.
+- Verify FFA and 2v2 with one human and three bots in an actual browser session.

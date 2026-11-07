@@ -18,6 +18,7 @@ export class ArtilleryCombat {
     this.hpLabel = document.getElementById('tank-hp');
     this.turnLabel = document.getElementById('turn-timer');
     this.elevation = 35;
+    this.turret.barrelPivot?.setLocalEulerAngles(this.elevation, 0, 0);
     this.power = 70;
     this.createControls();
     this.updateHud();
@@ -40,6 +41,7 @@ export class ArtilleryCombat {
     const weapon = document.getElementById('weapon');
     elevation?.addEventListener('input', () => {
       this.elevation = Number(elevation.value);
+      this.turret.barrelPivot?.setLocalEulerAngles(this.elevation, 0, 0);
       this.updateHud();
     });
     power?.addEventListener('input', () => {

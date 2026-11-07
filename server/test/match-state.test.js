@@ -333,3 +333,28 @@ test('AI does not fire when no eligible enemy remains', () => {
   }
   assert.equal(chooseBotShot(match, bot), null);
 });
+
+
+test('solo match advances from the human turn into an authoritative AI turn', () => {
+  const match = new MatchState(MATCH_RULES.modes.FFA);
+  match.addPlayer('human', 'Commander');
+  match.setReady('human', true);
+  match.addBotPlayers();
+  match.beginDeployment('human', 1000);
+  // Bots are auto-landed; the human lands at the assigned safe spawn.
+  const human = match.players.get('human');
+  match.setLanding('human', human.x, human.z, true);
+  assert.equal(match.status, 'combat');
+  assert.equal(match.currentPlayerId(), 'human');
+
+  match.resolveShot('human', { yaw: 0, elevation: 35, power: 70, weapon: 'standard' }, 2000);
+  const bot = match.players.get(match.currentPlayerId());
+  assert.equal(bot.isBot, true);
+  const aiShot = chooseBotShot(match, bot);
+  assert.ok(aiShot, 'AI should produce a shot for its turn');
+  const result = match.resolveShot(bot.id, aiShot, 3200);
+  assert.equal(result.shot.playerId, bot.id);
+  assert.equal(bot.shotsFired, 1);
+  assert.equal(match.currentPlayerId(), 'bot-3');
+  assert.equal(match.status, 'combat');
+});

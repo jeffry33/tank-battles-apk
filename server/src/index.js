@@ -79,6 +79,7 @@ wss.on('connection', socket => {
           shot: result.shot,
           impact: result.impact,
           impacts: result.impacts,
+          objectImpacts: result.objectImpacts,
           state: result.state
         });
       } else if (message.type === 'turn-expired') {

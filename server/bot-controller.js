@@ -12,8 +12,8 @@ function simulateClosestApproach(distance, elevationDegrees, power) {
   let closest = Number.POSITIVE_INFINITY;
   for (let t = 0; t < 8; t += step) {
     horizontal += horizontalSpeed * step;
-    y += verticalSpeed * step - 0.5 * 9.81 * step * step;
     verticalSpeed -= 9.81 * step;
+    y += verticalSpeed * step;
     // Server tank hitbox is centered around y=0.8 and uses a 1.6m threshold.
     const miss = Math.hypot(horizontal - distance, Math.max(0, Math.abs(y - 0.8) - 1.6));
     if (miss < closest) closest = miss;

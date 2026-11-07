@@ -81,7 +81,10 @@ wss.on('connection', socket => {
       const room = socket.room;
       if (!room) throw new Error('Join a room first');
 
-      if (message.type === 'start-deployment') {
+      if (message.type === 'ready') {
+        const state = room.match.setReady(socket.playerId, message.ready);
+        broadcast(room, 'state', { state });
+      } else if (message.type === 'start-deployment') {
         if (room.match.status !== 'waiting') throw new Error('Deployment already started');
         room.match.beginDeployment(socket.playerId);
         broadcast(room, 'state', { state: publicState(room) });

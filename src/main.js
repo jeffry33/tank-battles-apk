@@ -146,7 +146,10 @@ app.on('update', dt => {
     if (timer) timer.textContent = 'TURN ' + remaining + 's';
   }
   const forward = -moveY*dt*7;
-  if (!combat.turnLocked && (!multiplayer.playerId || isMyNetworkTurn)) tank.translateLocal(moveX*dt*7,0,forward);
+  if (multiplayer.playerId && isDeployingNetwork) {
+    myLandingX = Math.max(-44, Math.min(44, myLandingX + moveX * dt * 10));
+    myLandingZ = Math.max(-44, Math.min(44, myLandingZ - moveY * dt * 10));
+  } else if (!combat.turnLocked && (!multiplayer.playerId || isMyNetworkTurn)) tank.translateLocal(moveX*dt*7,0,forward);
   if (!combat.turnLocked && (!multiplayer.playerId || isMyNetworkTurn)) turret.setEulerAngles(0,turretYaw,0);
   if (networkMoveAccumulator >= 0.12) {
     networkMoveAccumulator = 0;
@@ -170,6 +173,7 @@ const remoteTanks = new Map();
 const parachuteRigs = new Map();
 let deploymentStartAt = 0;
 let myLandingX = -30, myLandingZ = -30;
+let isDeployingNetwork = false;
 let isMyNetworkTurn = false;
 let networkTurnDeadline = 0;
 const multiplayer = new MultiplayerClient({
@@ -178,6 +182,7 @@ const multiplayer = new MultiplayerClient({
     const count = state.players?.length ?? 0;
     isMyNetworkTurn = state.currentPlayerId === multiplayer.playerId;
     networkTurnDeadline = state.turnDeadline || 0;
+    isDeployingNetwork = state.status === 'deploying';
     if (state.status === 'deploying' && !deploymentStartAt) deploymentStartAt = Date.now();
     if (state.status !== 'deploying') deploymentStartAt = 0;
     if (state.status === 'deploying') {
@@ -285,9 +290,13 @@ app.on('update', () => {
   const elapsed = (Date.now() - deploymentStartAt) / 1000;
   for (const [id, rig] of parachuteRigs) {
     const index = [...parachuteRigs.keys()].indexOf(id);
-    const x = [-30,30,-30,30][index] || 0;
-    const z = [-30,-30,30,30][index] || 0;
+    const x = id === multiplayer.playerId ? myLandingX : ([-30,30,-30,30][index] || 0);
+    const z = id === multiplayer.playerId ? myLandingZ : ([-30,-30,30,30][index] || 0);
     const height = Math.max(2, 38 - elapsed * 2.8);
     rig.setPosition(x, height, z);
+    if (id === multiplayer.playerId) {
+      const landingLabel = document.getElementById('lobby-status');
+      if (landingLabel) landingLabel.textContent = 'DEPLOYING · STEER TO LANDING ZONE';
+    }
   }
 });

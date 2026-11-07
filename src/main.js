@@ -400,7 +400,16 @@ const multiplayer = new MultiplayerClient({
       const host = state.hostId === multiplayer.playerId;
       lobby.textContent = state.status.toUpperCase() + ' · ' + count + '/4 · ' + (host ? 'HOST' : 'PLAYER') + ' · ' + (state.mode === 'team-battle' ? '2v2' : 'FFA');
       const startButton = document.getElementById('start-deployment');
-      if (startButton) startButton.disabled = !host || count < 2 || state.status !== 'waiting';
+      const me = (state.players || []).find(player => player.id === multiplayer.playerId);
+      const readyButton = document.getElementById('ready-up');
+      if (readyButton) {
+        readyButton.disabled = !me || state.status !== 'waiting';
+        readyButton.textContent = me?.ready ? 'NOT READY' : 'READY';
+      }
+      if (startButton) {
+        const connected = (state.players || []).filter(player => player.connected !== false);
+        startButton.disabled = !host || connected.length < 2 || !connected.every(player => player.ready) || state.status !== 'waiting';
+      }
     }
     networkStatus.textContent = 'ROOM ' + state.status.toUpperCase() + ' · ' + count + '/4 PLAYERS · ' + turn;
     const roster = document.getElementById('player-list');
@@ -485,6 +494,11 @@ document.getElementById('connect-server')?.addEventListener('click', () => {
   const mode = document.getElementById('game-mode')?.value || 'free-for-all';
   const displayName = (document.getElementById('commander-name')?.value || 'Commander').trim().slice(0, 20) || 'Commander';
   multiplayer.connect(url, roomId, mode, displayName);
+});
+document.getElementById('ready-up')?.addEventListener('click', () => {
+  const statePlayer = multiplayer.playerId;
+  if (!statePlayer) return;
+  multiplayer.setReady(!(window.__tankBattleReady === true));
 });
 document.getElementById('start-deployment')?.addEventListener('click', () => {
   multiplayer.startDeployment();

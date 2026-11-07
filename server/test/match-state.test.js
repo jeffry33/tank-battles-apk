@@ -73,7 +73,7 @@ test('projectile collides with an intact bunker before reaching the ground', () 
   const bunker = match.destructibles.get('bunker-west');
   const before = bunker.hp;
   const result = match.resolveShot('p1', {
-    yaw: 180, elevation: 30, power: 100, weapon: 'standard'
+    yaw: 180, elevation: 10, power: 20, weapon: 'standard'
   }, 2000);
   assert.equal(result.impact.reason, 'object');
   assert.ok(bunker.hp < before);

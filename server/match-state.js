@@ -50,7 +50,7 @@ export class MatchState {
     if (!this.hostId) this.hostId = id;
     this.players.set(id, {
       id, displayName: String(displayName).slice(0, 20), team,
-      hp: 100, alive: true, landed: false, connected: true, disconnectedAt: null,
+      hp: 100, alive: true, landed: false, ready: false, connected: true, disconnectedAt: null,
       x: spawn.x, z: spawn.z, yaw: 0, movedThisTurn: 0
     });
     return this.snapshot();
@@ -101,9 +101,19 @@ export class MatchState {
     return this.snapshot();
   }
 
+  setReady(id, ready) {
+    if (this.status !== 'waiting') throw new Error('Lobby is already closed');
+    const player = this.requirePlayer(id);
+    if (!player.connected) throw new Error('Disconnected players cannot ready up');
+    player.ready = Boolean(ready);
+    return this.snapshot();
+  }
+
   beginDeployment(requesterId, now = Date.now()) {
     if (requesterId !== this.hostId) throw new Error('Only the room host can start the match');
-    if (this.players.size < 2) throw new Error('At least two players are required');
+    const connectedPlayers = [...this.players.values()].filter(player => player.connected);
+    if (connectedPlayers.length < 2) throw new Error('At least two connected players are required');
+    if (!connectedPlayers.every(player => player.ready)) throw new Error('All connected players must be ready');
     this.status = 'deploying';
     this.turnDeadline = now + 30000;
   }

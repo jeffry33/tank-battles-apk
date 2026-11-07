@@ -1,0 +1,32 @@
+name: Server tests
+concurrency:
+  group: tank-battle-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+on:
+  push:
+    branches: [main, feature/full-game-development]
+    paths:
+      - 'server/**'
+      - '.github/workflows/server-tests.yml'
+  pull_request:
+    paths:
+      - 'server/**'
+      - '.github/workflows/server-tests.yml'
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: server
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm install
+      - run: npm test
+
+      - name: Validate multiplayer server container
+        working-directory: ${{ github.workspace }}
+        run: docker build -f Dockerfile.server -t tank-battle-server:test .

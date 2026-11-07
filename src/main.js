@@ -1,4 +1,8 @@
 import * as pc from 'playcanvas';
+import { ArtilleryCombat } from './combat.js';
+import { buildFrozenRiverArena } from './frozen-river.js';
+import { DestructibleWorld } from './destructible-world.js';
+import { MultiplayerClient } from './multiplayer-client.js';
 import './style.css';
 
 const canvas = document.getElementById('application-canvas');
@@ -10,6 +14,10 @@ const app = new pc.Application(canvas, {
 app.setCanvasFillMode(pc.FILLMODE_FILL_WINDOW);
 app.setCanvasResolution(pc.RESOLUTION_AUTO);
 app.scene.ambientLight = new pc.Color(0.48, 0.52, 0.58);
+app.scene.fog = pc.FOG_LINEAR;
+app.scene.fogColor = new pc.Color(0.66, 0.75, 0.81);
+app.scene.fogStart = 72;
+app.scene.fogEnd = 210;
 app.start();
 
 const camera = new pc.Entity('Camera');
@@ -20,8 +28,39 @@ camera.lookAt(0, 0, 0);
 
 const sun = new pc.Entity('Sun');
 sun.addComponent('light', { type: 'directional', color: new pc.Color(1, 0.91, 0.78), intensity: 1.6, castShadows: true, shadowResolution: 1024 });
+
 sun.setEulerAngles(45, 35, 0);
 app.root.addChild(sun);
+
+// Runtime graphics presets. Pixel ratio controls the actual drawing-buffer resolution.
+const graphicsProfiles = {
+  high: { pixelRatio: 1.5, shadowResolution: 1024, shadows: true, farClip: 1200 },
+  balanced: { pixelRatio: 1.25, shadowResolution: 512, shadows: true, farClip: 850 },
+  low: { pixelRatio: 1, shadowResolution: 256, shadows: false, farClip: 550 }
+};
+const graphicsSelect = document.getElementById('graphics-quality');
+const graphicsStatus = document.getElementById('graphics-status');
+function applyGraphicsProfile(name) {
+  const profile = graphicsProfiles[name] || graphicsProfiles.high;
+  app.graphicsDevice.maxPixelRatio = Math.min(window.devicePixelRatio || 1, profile.pixelRatio);
+  app.setCanvasResolution(pc.RESOLUTION_AUTO);
+  app.resizeCanvas();
+  sun.light.castShadows = profile.shadows;
+  sun.light.shadowResolution = profile.shadowResolution;
+  camera.camera.farClip = profile.farClip;
+  if (graphicsStatus) {
+    graphicsStatus.textContent = name.toUpperCase() + ' · ' +
+      Math.round(app.graphicsDevice.maxPixelRatio * 100) + '% render scale';
+  }
+}
+if (graphicsSelect) {
+  graphicsSelect.addEventListener('change', () => applyGraphicsProfile(graphicsSelect.value));
+  applyGraphicsProfile(graphicsSelect.value || 'high');
+} else {
+  applyGraphicsProfile('high');
+}
+let fpsFrameCount = 0;
+let fpsElapsed = 0;
 
 function material(color, metalness=0, gloss=0.35) {
   const m = new pc.StandardMaterial();
@@ -54,31 +93,62 @@ function cylinder(parent, name, pos, scale, mat) {
   return e;
 }
 
-// Temporary arena: a visual blockout, to be replaced by production terrain and purchased/licensed assets.
-box(app.root, 'Battlefield', [0,-0.35,0], [90,0.6,90], groundMat);
-for (let i=0;i<9;i++) {
-  const ridge = box(app.root, 'Snow Ridge '+i, [-38 + i*9.5, 2.0, -36], [12,5 + (i%3)*2,9], snowMat);
-  ridge.setEulerAngles(0, (i%2)*8, 0);
-}
-box(app.root, 'River Bed', [0,-0.02,0], [9,0.08,88], material([0.12,0.24,0.31],0.3,0.8));
-box(app.root, 'Bridge', [0,0.18,5], [15,0.35,5], material([0.34,0.31,0.26],0.1,0.3));
+// Expanded procedural Frozen River arena.
+buildFrozenRiverArena(app);
 
+// Detailed procedural tank blockout: layered hull, tracks, road wheels, turret and elevated cannon.
 const tank = new pc.Entity('Player Tank');
 app.root.addChild(tank);
-box(tank,'Hull',[0,0.85,0],[2.9,0.85,4.0],tankMat);
-box(tank,'Lower Hull',[0,0.42,0],[3.25,0.45,4.2],darkMat);
+const trackMat = material([0.055,0.067,0.064], 0.18, 0.3);
+const wheelMat = material([0.16,0.19,0.18], 0.62, 0.55);
+const accentMat = material([0.38,0.34,0.23], 0.35, 0.5);
+const glassMat = material([0.055,0.12,0.15], 0.72, 0.9);
+box(tank,'Lower armored chassis',[0,0.46,0],[3.25,0.55,4.35],darkMat);
+box(tank,'Upper sloped hull',[0,0.98,0],[2.9,0.82,3.95],tankMat);
+box(tank,'Front glacis',[0,1.18,-1.75],[2.75,0.36,0.75],tankMat).setLocalEulerAngles(-17,0,0);
+box(tank,'Rear engine deck',[0,1.32,1.35],[2.5,0.28,1.0],darkMat);
 for (const side of [-1,1]) {
-  box(tank,'Track '+side,[side*1.58,0.48,0],[0.42,0.72,4.15],darkMat);
-  for (let i=0;i<5;i++) cylinder(tank,'Road Wheel',[side*1.8,0.47,-1.45+i*0.72],[0.23,0.23,0.23],metalMat);
+  box(tank,'Track belt '+side,[side*1.62,0.55,0],[0.42,0.86,4.5],trackMat);
+  for (let i=0;i<7;i++) {
+    const wheel = cylinder(tank,'Road wheel '+side+' '+i,[side*1.86,0.54,-1.65+i*0.55],[0.58,0.58,0.18],wheelMat);
+    wheel.setLocalEulerAngles(0,0,90);
+    const hub = cylinder(tank,'Wheel hub '+side+' '+i,[side*1.96,0.54,-1.65+i*0.55],[0.24,0.24,0.2],metalMat);
+    hub.setLocalEulerAngles(0,0,90);
+  }
+  const sprocket = cylinder(tank,'Drive sprocket '+side,[side*1.86,0.56,2.02],[0.72,0.72,0.2],accentMat);
+  sprocket.setLocalEulerAngles(0,0,90);
+  for (let i=0;i<12;i++) {
+    const z=-2.12+i*0.38;
+    box(tank,'Track tread '+side+' '+i,[side*1.87,0.99,z],[0.45,0.08,0.25],metalMat);
+    box(tank,'Track tread lower '+side+' '+i,[side*1.87,0.12,z],[0.45,0.08,0.25],metalMat);
+  }
 }
-const turret = new pc.Entity('Turret');
+box(tank,'Front bumper',[0,0.62,-2.18],[2.75,0.24,0.25],metalMat);
+for (const side of [-1,1]) {
+  box(tank,'Headlight '+side,[side*1.05,1.02,-2.02],[0.28,0.2,0.12],glassMat);
+  box(tank,'Side armor plate '+side,[side*1.48,0.88,0],[0.18,0.6,2.9],tankMat);
+  box(tank,'Side marking '+side,[side*1.58,0.92,0.2],[0.04,0.12,0.65],accentMat);
+}
+const turret = new pc.Entity('Rotating Turret');
 tank.addChild(turret);
-turret.setLocalPosition(0,1.35,-0.15);
-cylinder(turret,'Turret Base',[0,0,0],[1.55,0.48,1.55],tankMat);
-box(turret,'Turret Armor',[0,0.28,0],[1.8,0.55,1.9],tankMat);
-const barrel = box(turret,'Main Cannon',[0,0.42,-1.55],[0.28,0.28,2.7],metalMat);
-box(turret,'Muzzle',[0,0.42,-2.92],[0.4,0.36,0.35],darkMat);
-
+turret.setLocalPosition(0,1.48,-0.1);
+cylinder(turret,'Turret ring',[0,0,0],[1.72,0.32,1.72],metalMat);
+box(turret,'Turret armored shell',[0,0.34,0],[1.9,0.66,2.0],tankMat);
+box(turret,'Commander cupola',[0,0.76,0.48],[0.72,0.28,0.72],darkMat);
+cylinder(turret,'Cupola hatch',[0,0.94,0.48],[0.45,0.12,0.45],metalMat);
+const barrelPivot = new pc.Entity('Cannon Elevation Pivot');
+turret.barrelPivot = barrelPivot;
+turret.addChild(barrelPivot);
+barrelPivot.setLocalPosition(0,0.42,-0.8);
+const barrel = cylinder(barrelPivot,'Main cannon barrel',[0,0,-1.15],[0.2,0.2,2.5],metalMat);
+barrel.setLocalEulerAngles(90,0,0);
+const muzzle = cylinder(barrelPivot,'Muzzle brake',[0,0,-2.43],[0.34,0.34,0.42],darkMat);
+muzzle.setLocalEulerAngles(90,0,0);
+box(turret,'Optics housing',[0,0.62,-0.72],[0.48,0.22,0.4],glassMat);
+for (const side of [-1,1]) {
+  const smoke = cylinder(turret,'Smoke launcher '+side,[side*0.72,0.52,0.55],[0.18,0.18,0.52],darkMat);
+  smoke.setLocalEulerAngles(90,0,0);
+}
 // Basic camera follow and temporary touch controls.
 let moveX=0, moveY=0, turretYaw=0, shotCooldown=0;
 const joystick = document.getElementById('joystick');
@@ -99,17 +169,40 @@ aimPad.addEventListener('pointerdown',e=>{aimPointer=e.pointerId;lastAimX=e.clie
 aimPad.addEventListener('pointermove',e=>{if(e.pointerId!==aimPointer)return;turretYaw-=(e.clientX-lastAimX)*0.45;lastAimX=e.clientX;lastAimY=e.clientY;});
 aimPad.addEventListener('pointerup',e=>{if(e.pointerId===aimPointer)aimPointer=null;});
 const message=document.getElementById('message');
-document.getElementById('fire').addEventListener('click',()=>{
-  if(shotCooldown>0)return;
-  shotCooldown=1.2;
-  message.textContent='Test shot fired — projectile system is next milestone';
-});
+const destructibleWorld = new DestructibleWorld(app, message);
+const combat = new ArtilleryCombat(app, tank, turret, camera, message, destructibleWorld);
+let networkMoveAccumulator = 0;
 app.on('update', dt => {
+  fpsFrameCount++;
+  fpsElapsed += dt;
+  if (fpsElapsed >= 0.5) {
+    const fps = Math.round(fpsFrameCount / fpsElapsed);
+    const fpsElement = document.getElementById('fps-counter');
+    if (fpsElement) fpsElement.textContent = fps + ' FPS';
+    fpsFrameCount = 0;
+    fpsElapsed = 0;
+  }
   shotCooldown=Math.max(0,shotCooldown-dt);
+  networkMoveAccumulator += dt;
+  if (multiplayer.playerId && networkTurnDeadline > 0) {
+    const remaining = Math.max(0, Math.ceil((networkTurnDeadline - Date.now()) / 1000));
+    if (isMyNetworkTurn) combat.turnSeconds = remaining;
+    const timer = document.getElementById('turn-timer');
+    if (timer) timer.textContent = 'TURN ' + remaining + 's';
+  }
   const forward = -moveY*dt*7;
-  tank.translateLocal(moveX*dt*7,0,forward);
-  turret.setEulerAngles(0,turretYaw,0);
-  const target = tank.getPosition().clone().add(new pc.Vec3(0,5,10));
+  if (multiplayer.playerId && isDeployingNetwork && !hasLandedNetwork) {
+    myLandingX = Math.max(-44, Math.min(44, myLandingX + moveX * dt * 10));
+    myLandingZ = Math.max(-44, Math.min(44, myLandingZ - moveY * dt * 10));
+  } else if (!combat.turnLocked && (!multiplayer.playerId || isMyNetworkTurn)) tank.translateLocal(moveX*dt*7,0,forward);
+  if (!combat.turnLocked && (!multiplayer.playerId || isMyNetworkTurn)) turret.setEulerAngles(0,turretYaw,0);
+  if (networkMoveAccumulator >= 0.12) {
+    networkMoveAccumulator = 0;
+    if (multiplayer.playerId && isMyNetworkTurn && !combat.turnLocked) {
+      const position = tank.getPosition();
+      multiplayer.move(position.x, position.z, turretYaw);
+    }
+  }
   const current = camera.getPosition();
   const desired = tank.getPosition().clone().add(new pc.Vec3(0,7,12));
   camera.setPosition(current.lerp(desired,Math.min(1,dt*3)));
@@ -117,3 +210,449 @@ app.on('update', dt => {
 });
 window.addEventListener('resize',()=>app.resizeCanvas());
 document.getElementById('message').textContent='TANK BATTLE · Visual foundation blockout';
+
+
+// Optional network integration. Enter the publicly hosted WebSocket URL on the HUD.
+const networkStatus = document.getElementById('message');
+const networkProjectiles = [];
+const networkExplosions = [];
+const networkTrailPuffs = [];
+let cinematicProjectile = null;
+let cinematicCameraReturn = null;
+let recoilRemaining = 0;
+let muzzleFlashRemaining = 0;
+let muzzleFlashEntity = null;
+const muzzleFlashMaterial = material([1, 0.68, 0.2], 0, 0.9);
+muzzleFlashMaterial.emissive = new pc.Color(1, 0.38, 0.05);
+muzzleFlashMaterial.update();
+const recoilOrigin = new pc.Vec3(0, 0, -0.8);
+const networkTrailMaterial = material([0.32, 0.34, 0.33], 0, 0.12);
+networkTrailMaterial.opacity = 0.52;
+networkTrailMaterial.blendType = pc.BLEND_NORMAL;
+networkTrailMaterial.update();
+function spawnNetworkShot(data) {
+  if (!data?.impact || !data?.shot || !data?.state) return;
+  const shooter = (data.state.players || []).find(player => player.id === data.playerId);
+  if (!shooter) return;
+  const shot = data.shot;
+  const yaw = shot.yaw * Math.PI / 180;
+  const elevation = shot.elevation * Math.PI / 180;
+  const speed = shot.power / 100 * 42;
+  const velocity = new pc.Vec3(
+    -Math.sin(yaw) * Math.cos(elevation) * speed,
+    Math.sin(elevation) * speed,
+    -Math.cos(yaw) * Math.cos(elevation) * speed
+  );
+  const shellMaterial = material([1, 0.58, 0.12], 0.25, 0.8);
+  shellMaterial.emissive = new pc.Color(1, 0.32, 0.04);
+  shellMaterial.update();
+  const shell = new pc.Entity('Network Artillery Projectile');
+  shell.addComponent('render', { type: 'sphere', material: shellMaterial });
+  shell.setLocalScale(0.42, 0.42, 0.42);
+  shell.setPosition(shooter.x, 1.8, shooter.z);
+  app.root.addChild(shell);
+  // Brief muzzle flash and cannon recoil on the local tank when it fires.
+  if (data.playerId === multiplayer.playerId) {
+    muzzleFlashEntity?.destroy();
+    muzzleFlashEntity = new pc.Entity('Cannon muzzle flash');
+    muzzleFlashEntity.addComponent('render', { type: 'sphere', material: muzzleFlashMaterial });
+    muzzleFlashEntity.setLocalScale(0.95, 0.95, 1.5);
+    barrelPivot.addChild(muzzleFlashEntity);
+    muzzleFlashEntity.setLocalPosition(0, 0, -2.8);
+    muzzleFlashRemaining = 0.12;
+    recoilRemaining = 0.18;
+  }
+  // Camera follows the authoritative projectile for a short cinematic shot.
+  if (!cinematicProjectile) {
+    cinematicCameraReturn = camera.getPosition().clone();
+    cinematicProjectile = shell;
+  }
+  networkProjectiles.push({
+    entity: shell,
+    origin: new pc.Vec3(shooter.x, 1.8, shooter.z),
+    velocity,
+    elapsed: 0,
+    duration: Math.max(0.04, data.impact.flightSeconds || 0.04),
+    impact: data.impact,
+    guided: shot.weapon === 'guided',
+    lastTrailAt: 0
+  });
+}
+function spawnNetworkExplosion(position, radius) {
+  // Destructible health is updated from the server's objectImpacts payload in onShot.
+  const fxMaterial = material([1, 0.26, 0.035], 0, 0.25);
+  fxMaterial.emissive = new pc.Color(1, 0.12, 0.015);
+  fxMaterial.update();
+  const fx = new pc.Entity('Network Impact Explosion');
+  fx.addComponent('render', { type: 'sphere', material: fxMaterial });
+  fx.setPosition(position.x, Math.max(0.5, position.y), position.z);
+  fx.setLocalScale(0.6, 0.6, 0.6);
+  app.root.addChild(fx);
+  networkExplosions.push({ entity: fx, life: 0.65, duration: 0.65, radius: Math.max(2, radius || 4) });
+}
+const remoteTanks = new Map();
+const parachuteRigs = new Map();
+let deploymentStartAt = 0;
+let myLandingX = -30, myLandingZ = -30;
+let isDeployingNetwork = false;
+let hasLandedNetwork = false;
+let deploymentPlane = null;
+let landingMarker = null;
+const deploymentPlaneMaterial = material([0.25, 0.29, 0.31], 0.35, 0.48);
+const landingMarkerMaterial = material([0.2, 0.9, 0.58], 0.2, 0.65);
+landingMarkerMaterial.emissive = new pc.Color(0.05, 0.42, 0.2);
+landingMarkerMaterial.update();
+function createDeploymentPlane() {
+  const plane = new pc.Entity('C-130 style deployment aircraft');
+  const fuselage = cylinder(plane, 'Transport fuselage', [0, 0, 0], [1.7, 1.7, 14], deploymentPlaneMaterial);
+  fuselage.setLocalEulerAngles(90, 0, 0);
+  box(plane, 'Transport main wing', [0, 0.1, -0.2], [25, 0.35, 3.8], deploymentPlaneMaterial);
+  box(plane, 'Transport horizontal tail', [0, 0.25, 5.7], [9, 0.25, 2], deploymentPlaneMaterial);
+  box(plane, 'Transport vertical tail', [0, 1.4, 5.8], [0.35, 2.8, 2.1], deploymentPlaneMaterial);
+  for (const side of [-1, 1]) {
+    const engine = cylinder(plane, 'Turboprop engine ' + side, [side * 7.2, -0.15, -0.4], [0.62, 0.62, 2.1], darkMat);
+    engine.setLocalEulerAngles(90, 0, 0);
+    const propeller = box(plane, 'Propeller ' + side, [side * 7.2, -0.15, -1.55], [2.8, 0.12, 0.18], metalMat);
+    propeller.setLocalEulerAngles(0, 0, 18);
+  }
+  app.root.addChild(plane);
+  return plane;
+}
+function createLandingMarker() {
+  const marker = new pc.Entity('Player landing target marker');
+  const ring = new pc.Entity('Landing target ring');
+  ring.addComponent('render', { type: 'cylinder', material: landingMarkerMaterial });
+  ring.setLocalScale(7.5, 0.12, 7.5);
+  marker.addChild(ring);
+  const cross = new pc.Entity('Landing target cross');
+  cross.addComponent('render', { type: 'box', material: landingMarkerMaterial });
+  cross.setLocalScale(8.5, 0.08, 0.22);
+  marker.addChild(cross);
+  const cross2 = new pc.Entity('Landing target cross 2');
+  cross2.addComponent('render', { type: 'box', material: landingMarkerMaterial });
+  cross2.setLocalScale(0.22, 0.08, 8.5);
+  marker.addChild(cross2);
+  app.root.addChild(marker);
+  return marker;
+}
+let isMyNetworkTurn = false;
+let networkTurnDeadline = 0;
+const PROFILE_KEY = 'tank-battle-profile-v1';
+function readLocalProfile() {
+  const fallback = { xp: 0, matches: 0, wins: 0, losses: 0, draws: 0, processedMatches: [] };
+  try { return { ...fallback, ...(JSON.parse(localStorage.getItem(PROFILE_KEY)) || {}) }; }
+  catch { return fallback; }
+}
+function xpForPlayer(player, won) {
+  return 50 + (won ? 100 : 0) + (player.eliminations || 0) * 25 + Math.floor((player.damageDealt || 0) / 10);
+}
+function applyMatchProgress(state, player) {
+  const profile = readLocalProfile();
+  if (profile.processedMatches.includes(state.matchId)) return { profile, earned: 0 };
+  const draw = state.winner === null;
+  const won = !draw && (state.mode === 'team-battle' ? player.team === state.winner : player.id === state.winner);
+  const earned = xpForPlayer(player, won);
+  profile.xp += earned; profile.matches += 1;
+  if (draw) profile.draws += 1; else if (won) profile.wins += 1; else profile.losses += 1;
+  profile.processedMatches = [...profile.processedMatches, state.matchId].slice(-100);
+  localStorage.setItem(PROFILE_KEY, JSON.stringify(profile));
+  return { profile, earned };
+}
+function profileLevel(xp) { let level = 1, remaining = xp; while (remaining >= level * 100) { remaining -= level * 100; level++; } return { level, into: remaining, next: level * 100 }; }
+let localReadyState = false;
+const multiplayer = new MultiplayerClient({
+  onStatus: status => { networkStatus.textContent = status; },
+  onState: state => {
+    const count = state.players?.length ?? 0;
+    isMyNetworkTurn = state.currentPlayerId === multiplayer.playerId;
+    combat.onlineMode = Boolean(multiplayer.playerId);
+    networkTurnDeadline = state.turnDeadline || 0;
+    if (multiplayer.playerId) {
+      const me = (state.players || []).find(p => p.id === multiplayer.playerId);
+      if (me) {
+        combat.hp = me.hp;
+        combat.updateHud();
+        combat.turnLocked = !isMyNetworkTurn || !me.alive || state.status !== 'combat';
+      }
+      const winnerLabel = state.status === 'finished'
+        ? (state.winner === null ? 'DRAW · MATCH FINISHED' : state.mode === 'team-battle' ? 'TEAM ' + (state.winner + 1) + ' WINS' : 'PLAYER ' + state.winner.slice(0, 6) + ' WINS')
+        : '';
+      if (winnerLabel) networkStatus.textContent = winnerLabel;
+    }
+    isDeployingNetwork = state.status === 'deploying';
+    if (state.status === 'deploying' && !deploymentStartAt) deploymentStartAt = Date.now();
+    if (state.status !== 'deploying') {
+      deploymentStartAt = 0;
+      deploymentPlane?.destroy(); deploymentPlane = null;
+      landingMarker?.destroy(); landingMarker = null;
+    }
+    if (state.status === 'deploying') {
+      if (!deploymentPlane) deploymentPlane = createDeploymentPlane();
+      if (!landingMarker) landingMarker = createLandingMarker();
+      for (const player of (state.players || [])) {
+        if (parachuteRigs.has(player.id)) continue;
+        const rig = new pc.Entity('Parachute rig ' + player.displayName);
+        const canopy = new pc.Entity('Parachute canopy');
+        canopy.addComponent('render', { type: 'sphere', material: material([0.82,0.12,0.08],0,0.25) });
+        canopy.setLocalScale(4.2,0.55,2.2);
+        canopy.setLocalPosition(0,5.8,0);
+        rig.addChild(canopy);
+        const tankProxy = new pc.Entity('Airborne tank');
+        tankProxy.addComponent('render', { type: 'box', material: material([0.24,0.29,0.19],0.2,0.3) });
+        tankProxy.setLocalScale(2.1,0.8,3);
+        tankProxy.setLocalPosition(0,1.2,0);
+        rig.addChild(tankProxy);
+        const ropeMat = material([0.85,0.85,0.8],0,0.2);
+        for (const side of [-1,1]) {
+          const rope = new pc.Entity('Parachute line');
+          rope.addComponent('render',{type:'cylinder',material:ropeMat});
+          rope.setLocalScale(0.035,2.3,0.035);
+          rope.setLocalPosition(side*0.7,3.3,0);
+          rig.addChild(rope);
+        }
+        app.root.addChild(rig);
+        parachuteRigs.set(player.id,rig);
+      }
+    } else {
+      for (const rig of parachuteRigs.values()) rig.destroy();
+      parachuteRigs.clear();
+    }
+    const turn = isMyNetworkTurn ? 'YOUR TURN' : 'OPPONENT TURN';
+    const lobby = document.getElementById('lobby-status');
+    if (lobby) {
+      const host = state.hostId === multiplayer.playerId;
+      lobby.textContent = state.status.toUpperCase() + ' · ' + count + '/4 · ' + (host ? 'HOST' : 'PLAYER') + ' · ' + (state.mode === 'team-battle' ? '2v2' : 'FFA');
+      const startButton = document.getElementById('start-deployment');
+      const me = (state.players || []).find(player => player.id === multiplayer.playerId);
+      const readyButton = document.getElementById('ready-up');
+      localReadyState = Boolean(me?.ready);
+      if (readyButton) {
+        readyButton.disabled = !me || state.status !== 'waiting';
+        readyButton.textContent = localReadyState ? 'NOT READY' : 'READY';
+      }
+      if (startButton) {
+        const connected = (state.players || []).filter(player => player.connected !== false);
+        startButton.disabled = !host || connected.length < 1 || !connected.every(player => player.ready) || state.status !== 'waiting';
+      }
+    }
+    networkStatus.textContent = 'ROOM ' + state.status.toUpperCase() + ' · ' + count + '/4 PLAYERS · ' + turn;
+    const roster = document.getElementById('player-list');
+    if (roster) {
+      roster.replaceChildren();
+      for (const player of (state.players || [])) {
+        const row = document.createElement('div');
+        const active = player.id === state.currentPlayerId;
+        const connection = player.connected === false ? 'OFFLINE' : !player.alive ? 'ELIMINATED' : state.status === 'waiting' ? (player.ready ? 'READY' : 'NOT READY') : player.landed ? 'LANDED' : 'AIRBORNE';
+        const team = player.team === null || player.team === undefined ? 'FFA' : 'TEAM ' + (player.team + 1);
+        row.className = 'player-row' + (active ? ' active' : '') + (player.connected === false ? ' offline' : '');
+        row.textContent = (active ? '▶ ' : '') + (player.isBot ? '🤖 ' : '') + player.displayName + ' · ' + team + ' · HP ' + player.hp + ' · ' + connection;
+        roster.appendChild(row);
+      }
+    }
+    const resultPanel = document.getElementById('match-result');
+    if (resultPanel) {
+      if (state.status === 'finished') {
+        const winningPlayer = (state.players || []).find(player => player.id === state.winner);
+        const me = (state.players || []).find(player => player.id === multiplayer.playerId);
+        const won = Boolean(me && (state.mode === 'team-battle' ? me.team === state.winner : me.id === state.winner));
+        const progress = me ? applyMatchProgress(state, me) : { profile: readLocalProfile(), earned: 0 };
+        const level = profileLevel(progress.profile.xp);
+        const title = state.winner === null ? 'DRAW · MATCH FINISHED'
+          : state.mode === 'team-battle' ? 'TEAM ' + (state.winner + 1) + ' WINS'
+          : (winningPlayer?.displayName || 'PLAYER') + ' WINS';
+        resultPanel.textContent = title + (me ? ' · ' + (won ? 'VICTORY' : 'DEFEAT') + ' · +' + progress.earned + ' XP · LEVEL ' + level.level + ' · TOTAL XP ' + progress.profile.xp : '');
+        resultPanel.hidden = false;
+      } else {
+        resultPanel.hidden = true;
+      }
+    }
+    for (const player of (state.players || [])) {
+      if (player.id === multiplayer.playerId) {
+        hasLandedNetwork = Boolean(player.landed);
+        if (state.status !== 'deploying') { myLandingX = player.x; myLandingZ = player.z; }
+        if (state.status === 'combat') {
+          tank.setPosition(player.x, tank.getPosition().y, player.z);
+          turretYaw = player.yaw || 0;
+          turret.setEulerAngles(0, turretYaw, 0);
+        }
+        continue;
+      }
+      let remote = remoteTanks.get(player.id);
+      if (!remote) {
+        remote = new pc.Entity('Remote Tank ' + player.displayName);
+        const hull = new pc.Entity('Remote Hull');
+        hull.addComponent('render', { type: 'box', material: material([0.35,0.16,0.12],0.25,0.4) });
+        hull.setLocalScale(2.7,1.1,3.5);
+        remote.addChild(hull);
+        const turretMesh = new pc.Entity('Remote Turret');
+        turretMesh.addComponent('render', { type: 'box', material: material([0.22,0.12,0.1],0.3,0.45) });
+        turretMesh.setLocalPosition(0,0.8,0);
+        turretMesh.setLocalScale(1.5,0.55,1.6);
+        remote.addChild(turretMesh);
+        app.root.addChild(remote);
+        remoteTanks.set(player.id, remote);
+      }
+      remote.setPosition(player.x, 0.7, player.z);
+      remote.setEulerAngles(0, player.yaw || 0, 0);
+      remote.enabled = player.alive;
+      if (player.id === state.currentPlayerId) {
+        remote.name = 'ACTIVE · ' + player.displayName;
+      } else {
+        remote.name = 'Remote Tank ' + player.displayName;
+      }
+    }
+  },
+  onShot: data => {
+    if (data.impact) {
+      spawnNetworkShot(data);
+      destructibleWorld.applyAuthoritativeImpacts(data.objectImpacts || []);
+      const damageText = (data.impacts || []).map(hit => hit.damage + ' DMG').join(', ') || 'NO DAMAGE';
+      networkStatus.textContent = 'IMPACT · ' + damageText + ' · ' + data.impact.flightSeconds + 's flight';
+      const ownHit = (data.impacts || []).find(hit => hit.playerId === multiplayer.playerId);
+      if (ownHit) {
+        combat.hp = ownHit.hp;
+        combat.updateHud();
+      }
+    } else networkStatus.textContent = 'PLAYER SHOT RECEIVED · ' + data.playerId;
+  }
+});
+document.getElementById('connect-server')?.addEventListener('click', () => {
+  const url = document.getElementById('server-url')?.value.trim();
+  const roomId = document.getElementById('room-id')?.value.trim() || 'quick-match';
+  if (!url) { networkStatus.textContent = 'Enter a WebSocket server URL'; return; }
+  const mode = document.getElementById('game-mode')?.value || 'free-for-all';
+  const displayName = (document.getElementById('commander-name')?.value || 'Commander').trim().slice(0, 20) || 'Commander';
+  multiplayer.connect(url, roomId, mode, displayName);
+});
+document.getElementById('ready-up')?.addEventListener('click', () => {
+  const statePlayer = multiplayer.playerId;
+  if (!statePlayer) return;
+  localReadyState = !localReadyState;
+  multiplayer.setReady(localReadyState);
+});
+document.getElementById('start-deployment')?.addEventListener('click', () => {
+  multiplayer.startDeployment();
+});
+window.tankBattleMultiplayer = multiplayer;
+
+document.getElementById('fire')?.addEventListener('click', () => {
+  if (!multiplayer.playerId || !isMyNetworkTurn) return;
+  const elevation = Number(document.getElementById('elevation')?.value || 35);
+  const power = Number(document.getElementById('power')?.value || 70);
+  const weapon = document.getElementById('weapon')?.value || 'standard';
+  multiplayer.shoot({ yaw: turretYaw, elevation, power, weapon });
+});
+
+document.getElementById('start-deployment')?.insertAdjacentHTML('afterend',
+  '<button id="land-tank" style="padding:7px;background:#315b43;color:white;border:1px solid #9fc7a9;border-radius:5px">LAND</button>');
+const landButton = document.getElementById('land-tank');
+landButton?.addEventListener('click', () => {
+  if (isDeployingNetwork && !hasLandedNetwork) multiplayer.land(myLandingX, myLandingZ);
+});
+app.on('update', dt => {
+  if (recoilRemaining > 0) {
+    recoilRemaining = Math.max(0, recoilRemaining - dt);
+    const kick = Math.sin((recoilRemaining / 0.18) * Math.PI) * 0.22;
+    barrelPivot.setLocalPosition(0, 0.42, -0.8 + kick);
+  } else {
+    barrelPivot.setLocalPosition(0, 0.42, -0.8);
+  }
+  if (muzzleFlashRemaining > 0) {
+    muzzleFlashRemaining = Math.max(0, muzzleFlashRemaining - dt);
+    if (muzzleFlashEntity) {
+      const size = 0.35 + (muzzleFlashRemaining / 0.12) * 0.9;
+      muzzleFlashEntity.setLocalScale(size, size, size * 1.5);
+    }
+  } else if (muzzleFlashEntity) {
+    muzzleFlashEntity.destroy();
+    muzzleFlashEntity = null;
+  }
+  for (let i = networkProjectiles.length - 1; i >= 0; i--) {
+    const projectile = networkProjectiles[i];
+    projectile.elapsed += dt;
+    const t = Math.min(projectile.elapsed, projectile.duration);
+    let position;
+    if (projectile.guided) {
+      const progress = Math.min(1, t / projectile.duration);
+      const target = new pc.Vec3(projectile.impact.x, projectile.impact.y, projectile.impact.z);
+      position = projectile.origin.clone().lerp(target, progress);
+      position.y += Math.sin(progress * Math.PI) * Math.max(2.5, projectile.origin.distance(target) * 0.12);
+    } else {
+      position = projectile.origin.clone().add(projectile.velocity.clone().mulScalar(t));
+      position.y -= 0.5 * 9.81 * t * t;
+    }
+    if (projectile.elapsed - projectile.lastTrailAt >= 0.055 && projectile.elapsed < projectile.duration) {
+      projectile.lastTrailAt = projectile.elapsed;
+      const puff = new pc.Entity('Projectile smoke trail');
+      puff.addComponent('render', { type: 'sphere', material: networkTrailMaterial });
+      puff.setPosition(position);
+      puff.setLocalScale(0.18, 0.18, 0.18);
+      app.root.addChild(puff);
+      networkTrailPuffs.push({ entity: puff, life: 0.42, duration: 0.42 });
+    }
+    if (projectile.elapsed >= projectile.duration) {
+      projectile.entity.destroy();
+      spawnNetworkExplosion(projectile.impact, projectile.impact.radius);
+      for (const submunition of (projectile.impact.submunitionPoints || [])) {
+        spawnNetworkExplosion(submunition, Math.max(1.5, (projectile.impact.radius || 4) * 0.58));
+      }
+      networkProjectiles.splice(i, 1);
+    } else {
+      projectile.entity.setPosition(position);
+    }
+  }
+  if (cinematicProjectile && cinematicProjectile.enabled) {
+    const p = cinematicProjectile.getPosition();
+    const offset = new pc.Vec3(0, 3.2, 7.5);
+    const targetCamera = p.clone().add(offset);
+    camera.setPosition(camera.getPosition().lerp(targetCamera, Math.min(1, dt * 4)));
+    camera.lookAt(p);
+    if (!networkProjectiles.some(item => item.entity === cinematicProjectile)) {
+      cinematicProjectile = null;
+      cinematicCameraReturn = null;
+    }
+  }
+  for (let i = networkTrailPuffs.length - 1; i >= 0; i--) {
+    const puff = networkTrailPuffs[i];
+    puff.life -= dt;
+    const fade = Math.max(0, puff.life / puff.duration);
+    puff.entity.setLocalScale(0.12 + (1 - fade) * 0.38, 0.12 + (1 - fade) * 0.38, 0.12 + (1 - fade) * 0.38);
+    if (puff.life <= 0) {
+      puff.entity.destroy();
+      networkTrailPuffs.splice(i, 1);
+    }
+  }
+  for (let i = networkExplosions.length - 1; i >= 0; i--) {
+    const explosion = networkExplosions[i];
+    explosion.life -= dt;
+    const progress = 1 - Math.max(0, explosion.life) / explosion.duration;
+    const scale = 0.6 + progress * explosion.radius * 0.55;
+    explosion.entity.setLocalScale(scale, scale, scale);
+    if (explosion.life <= 0) {
+      explosion.entity.destroy();
+      networkExplosions.splice(i, 1);
+    }
+  }
+});
+app.on('update', () => {
+  if (!deploymentStartAt) return;
+  const elapsed = (Date.now() - deploymentStartAt) / 1000;
+  if (deploymentPlane) deploymentPlane.setPosition(0, 45, -55 + elapsed * 8);
+  if (landingMarker) {
+    landingMarker.setPosition(myLandingX, 0.22, myLandingZ);
+    landingMarker.enabled = !hasLandedNetwork;
+  }
+  if (landButton) landButton.disabled = !isDeployingNetwork || hasLandedNetwork;
+  if (!parachuteRigs.size) return;
+  for (const [id, rig] of parachuteRigs) {
+    const index = [...parachuteRigs.keys()].indexOf(id);
+    const x = id === multiplayer.playerId ? myLandingX : ([-30,30,-30,30][index] || 0);
+    const z = id === multiplayer.playerId ? myLandingZ : ([-30,-30,30,30][index] || 0);
+    const height = Math.max(2, 38 - elapsed * 2.8);
+    rig.setPosition(x, height, z);
+    if (id === multiplayer.playerId) {
+      const landingLabel = document.getElementById('lobby-status');
+      if (landingLabel) landingLabel.textContent = 'DEPLOYING · STEER TO LANDING ZONE';
+    }
+  }
+});

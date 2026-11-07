@@ -1,0 +1,365 @@
+// Match rules and server-owned player state. Coordinates use the arena's local X/Z plane.
+export const MATCH_RULES = Object.freeze({
+  maxPlayers: 4,
+  turnSeconds: 60,
+  arenaLimit: 48,
+  movementPerTurn: 8,
+  modes: Object.freeze({ FFA: 'free-for-all', TEAMS: 'team-battle' })
+});
+
+import { randomUUID } from 'node:crypto';
+import { ARENA_DESTRUCTIBLES } from '../src/arena-destructibles.js';
+
+export function isValidArenaPosition(x, z) {
+  if (!Number.isFinite(x) || !Number.isFinite(z)) return false;
+  if (Math.abs(x) > MATCH_RULES.arenaLimit || Math.abs(z) > MATCH_RULES.arenaLimit) return false;
+
+  // The center channel is deep water; the military bridge is the only crossing.
+  const onBridge = Math.abs(x) <= 8.9 && z >= 4.2 && z <= 11.8;
+  if (Math.abs(x) < 5.5 && !onBridge) return false;
+
+  // Avoid the footprint of the two bunkers and their snow-covered roofs.
+  for (const bx of [-20, 20]) {
+    if (Math.abs(x - bx) < 5.8 && Math.abs(z - 13) < 4.8) return false;
+  }
+  return true;
+}
+
+export class MatchState {
+  constructor(mode = MATCH_RULES.modes.FFA) {
+    if (!Object.values(MATCH_RULES.modes).includes(mode)) throw new Error('Unsupported game mode');
+    this.mode = mode;
+    this.matchId = randomUUID();
+    this.players = new Map();
+    this.turnOrder = [];
+    this.turnIndex = 0;
+    this.turnDeadline = 0;
+    this.status = 'waiting';
+    this.winner = null;
+    this.hostId = null;
+    this.destructibles = new Map(ARENA_DESTRUCTIBLES.map(item => [item.id, { ...item, alive: true }]));
+  }
+
+  addPlayer(id, displayName = 'Commander') {
+    if (this.status !== 'waiting') throw new Error('Match already started');
+    if (this.players.size >= MATCH_RULES.maxPlayers) throw new Error('Match is full');
+    if (this.players.has(id)) throw new Error('Player already joined');
+    const team = this.mode === MATCH_RULES.modes.TEAMS ? this.players.size % 2 : null;
+    const spawn = [
+      { x: -30, z: -30 }, { x: 30, z: -30 },
+      { x: -30, z: 30 }, { x: 30, z: 30 }
+    ][this.players.size];
+    if (!this.hostId) this.hostId = id;
+    this.players.set(id, {
+      id, displayName: String(displayName).slice(0, 20), team, isBot: false,
+      hp: 100, alive: true, landed: false, ready: false, connected: true, disconnectedAt: null,
+      shotsFired: 0, damageDealt: 0, eliminations: 0,
+      x: spawn.x, z: spawn.z, yaw: 0, movedThisTurn: 0
+    });
+    return this.snapshot();
+  }
+
+  markDisconnected(id, now = Date.now()) {
+    const player = this.requirePlayer(id);
+    player.connected = false;
+    player.disconnectedAt = now;
+    return this.snapshot();
+  }
+
+  reconnectPlayer(id) {
+    const player = this.requirePlayer(id);
+    if (!player.alive || this.status === 'finished') throw new Error('Player can no longer rejoin this match');
+    player.connected = true;
+    player.disconnectedAt = null;
+    return this.snapshot();
+  }
+
+  expireDisconnectedPlayers(now = Date.now(), graceMs = 90000) {
+    const expired = [];
+    for (const player of this.players.values()) {
+      if (!player.connected && player.disconnectedAt !== null &&
+          now - player.disconnectedAt >= graceMs && player.alive) {
+        player.alive = false;
+        player.hp = 0;
+        expired.push(player.id);
+      }
+    }
+    if (expired.includes(this.currentPlayerId()) && this.status === 'combat') {
+      this.advanceTurn(now);
+    } else if (this.status === 'combat' && expired.length) {
+      if (this.isMatchOver()) this.finishMatch();
+    }
+    return expired;
+  }
+
+  setLanding(id, x, z, valid) {
+    const player = this.requirePlayer(id);
+    if (this.status !== 'deploying') throw new Error('Not in deployment phase');
+    if (!valid || !Number.isFinite(x) || !Number.isFinite(z)) throw new Error('Invalid landing location');
+    if (!isValidArenaPosition(x, z)) throw new Error('Landing outside safe terrain or inside a blocked area');
+    const occupied = [...this.players.values()].some(other => other.id !== id && other.landed && Math.hypot(other.x - x, other.z - z) < 4.5);
+    if (occupied) throw new Error('Landing zone is too close to another tank');
+    player.x = x; player.z = z; player.landed = true;
+    if ([...this.players.values()].every(p => p.landed)) this.beginCombat(Date.now());
+    return this.snapshot();
+  }
+
+  setReady(id, ready) {
+    if (this.status !== 'waiting') throw new Error('Lobby is already closed');
+    const player = this.requirePlayer(id);
+    if (!player.connected) throw new Error('Disconnected players cannot ready up');
+    player.ready = Boolean(ready);
+    return this.snapshot();
+  }
+
+  addBotPlayers() {
+    if (this.status !== 'waiting') throw new Error('Bots can only join a waiting lobby');
+    while (this.players.size < MATCH_RULES.maxPlayers) {
+      const id = `bot-${this.players.size + 1}`;
+      const player = this.addPlayer(id, `AI Commander ${this.players.size}`);
+      const bot = this.players.get(id);
+      bot.isBot = true;
+      bot.ready = true;
+    }
+    return this.snapshot();
+  }
+
+  beginDeployment(requesterId, now = Date.now()) {
+    if (requesterId !== this.hostId) throw new Error('Only the room host can start the match');
+    const connectedPlayers = [...this.players.values()].filter(player => player.connected);
+    if (connectedPlayers.length < 2) throw new Error('At least two connected players are required');
+    if (!connectedPlayers.every(player => player.ready)) throw new Error('All connected players must be ready');
+    this.status = 'deploying';
+    for (const player of this.players.values()) {
+      if (player.isBot) player.landed = true;
+    }
+    this.turnDeadline = now + 30000;
+    if ([...this.players.values()].every(player => player.landed)) this.beginCombat(now);
+  }
+
+  beginCombat(now = Date.now()) {
+    this.status = 'combat';
+    this.turnOrder = [...this.players.keys()];
+    this.turnIndex = 0;
+    this.startTurn(now);
+  }
+
+  startTurn(now = Date.now()) {
+    this.turnOrder = this.turnOrder.filter(id => this.players.get(id)?.alive);
+    if (this.isMatchOver()) return this.finishMatch();
+    this.turnIndex %= Math.max(1, this.turnOrder.length);
+    const current = this.players.get(this.currentPlayerId());
+    if (current) current.movedThisTurn = 0;
+    this.turnDeadline = now + MATCH_RULES.turnSeconds * 1000;
+  }
+
+  updateMovement(id, x, z, yaw, now = Date.now()) {
+    if (this.status !== 'combat') throw new Error('Match is not in combat');
+    if (this.currentPlayerId() !== id) throw new Error('It is not this player\'s turn');
+    if (now > this.turnDeadline) throw new Error('Turn expired');
+    if (![x, z, yaw].every(Number.isFinite)) throw new Error('Invalid movement values');
+    const player = this.requirePlayer(id);
+    if (!player.alive) throw new Error('Tank is eliminated');
+    const dx = x - player.x, dz = z - player.z;
+    const distance = Math.hypot(dx, dz);
+    if (distance > 1.25) throw new Error('Movement update exceeds allowed step');
+    if (!isValidArenaPosition(x, z)) throw new Error('Movement blocked by water, terrain, or arena boundary');
+    const collidesWithTank = [...this.players.values()].some(other => other.id !== id && other.alive && Math.hypot(other.x - x, other.z - z) < 3.2);
+    if (collidesWithTank) throw new Error('Movement blocked by another tank');
+    if (player.movedThisTurn + distance > MATCH_RULES.movementPerTurn) throw new Error('Movement allowance used');
+    player.x = x; player.z = z; player.yaw = ((yaw % 360) + 360) % 360;
+    player.movedThisTurn += distance;
+    return this.snapshot();
+  }
+
+  submitShot(id, shot, now = Date.now()) {
+    if (this.status !== 'combat') throw new Error('Match is not in combat');
+    if (this.currentPlayerId() !== id) throw new Error('It is not this player\'s turn');
+    if (now > this.turnDeadline) throw new Error('Turn expired');
+    if (!shot || !Number.isFinite(shot.yaw) || !Number.isFinite(shot.elevation) || !Number.isFinite(shot.power)) throw new Error('Invalid shot');
+    return {
+      playerId: id,
+      yaw: ((shot.yaw % 360) + 360) % 360,
+      elevation: Math.max(10, Math.min(80, shot.elevation)),
+      power: Math.max(20, Math.min(100, shot.power)),
+      weapon: ['standard','heavy','guided','cluster'].includes(shot.weapon) ? shot.weapon : 'standard'
+    };
+  }
+
+  resolveShot(id, shot, now = Date.now()) {
+    const validated = this.submitShot(id, shot, now);
+    const shooter = this.requirePlayer(id);
+    shooter.shotsFired++;
+    const yaw = validated.yaw * Math.PI / 180;
+    const elevation = validated.elevation * Math.PI / 180;
+    const speed = validated.power / 100 * 42;
+    let vx = -Math.sin(yaw) * Math.cos(elevation) * speed;
+    let vy = Math.sin(elevation) * speed;
+    let vz = -Math.cos(yaw) * Math.cos(elevation) * speed;
+    let x = shooter.x, y = 1.8, z = shooter.z, t = 0;
+    const gravity = 9.81, step = 0.04;
+    let impactReason = 'ground';
+    const guidedTarget = validated.weapon === 'guided'
+      ? [...this.players.values()]
+          .filter(target => target.alive && target.id !== id &&
+            !(this.mode === MATCH_RULES.modes.TEAMS && target.team === shooter.team))
+          .sort((a, b) => Math.hypot(a.x - shooter.x, a.z - shooter.z) - Math.hypot(b.x - shooter.x, b.z - shooter.z))[0]
+      : null;
+    while (t < 8) {
+      t += step;
+      if (guidedTarget) {
+        // Server-authoritative homing: steer the missile gradually, preserving speed.
+        const desired = { x: guidedTarget.x - x, y: 0.8 - y, z: guidedTarget.z - z };
+        const length = Math.hypot(desired.x, desired.y, desired.z) || 1;
+        const speedNow = Math.hypot(vx, vy, vz);
+        const steer = 0.12;
+        vx = vx * (1 - steer) + desired.x / length * speedNow * steer;
+        vy = vy * (1 - steer) + desired.y / length * speedNow * steer;
+        vz = vz * (1 - steer) + desired.z / length * speedNow * steer;
+      }
+      x += vx * step;
+      // Integrate vertical velocity once per fixed step (semi-implicit Euler).
+      // The previous formula subtracted gravity without updating vy, producing
+      // an incorrect, overly flat trajectory that disagreed with client visuals.
+      vy -= gravity * step;
+      y += vy * step;
+      z += vz * step;
+      // Server-side collision checks: tanks first, then intact registered arena props.
+      const hit = [...this.players.values()].find(target => target.alive && target.id !== id &&
+        Math.hypot(target.x - x, target.z - z) < 1.6 && Math.abs(y - 0.8) < 1.6);
+      if (hit) { impactReason = 'tank'; break; }
+      const objectHit = [...this.destructibles.values()].find(object => object.alive &&
+        Math.hypot(object.x - x, object.y - y, object.z - z) <= object.radius);
+      if (objectHit) {
+        x = objectHit.x; y = objectHit.y; z = objectHit.z;
+        impactReason = 'object';
+        break;
+      }
+      if (y <= 0) { y = 0; break; }
+      if (Math.abs(x) > MATCH_RULES.arenaLimit || Math.abs(z) > MATCH_RULES.arenaLimit) {
+        impactReason = 'boundary'; break;
+      }
+    }
+    const radius = validated.weapon === 'heavy' ? 5.5 : validated.weapon === 'cluster' ? 2.6 : validated.weapon === 'guided' ? 4.5 : 4;
+    const baseDamage = validated.weapon === 'heavy' ? 42 : validated.weapon === 'cluster' ? 24 : validated.weapon === 'guided' ? 34 : 30;
+    const blastPoints = validated.weapon === 'cluster'
+      ? [
+          { x, y, z },
+          { x: x - 2.2, y, z }, { x: x + 2.2, y, z },
+          { x, y, z: z - 2.2 }, { x, y, z: z + 2.2 }
+        ]
+      : [{ x, y, z }];
+    const impactsByPlayer = new Map();
+    const objectImpactsById = new Map();
+    const shooterTeam = shooter.team;
+    for (const blast of blastPoints) {
+      for (const object of this.destructibles.values()) {
+        if (!object.alive) continue;
+        const distance = Math.hypot(object.x - blast.x, object.y - blast.y, object.z - blast.z);
+        const reach = radius + object.radius;
+        if (distance > reach) continue;
+        const damage = Math.max(0, Math.round(baseDamage * (1 - distance / reach)));
+        if (!damage) continue;
+        object.hp = Math.max(0, object.hp - damage);
+        if (object.hp === 0) object.alive = false;
+        objectImpactsById.set(object.id, { id: object.id, hp: object.hp, alive: object.alive });
+      }
+      for (const target of this.players.values()) {
+        if (!target.alive || target.id === shooter.id) continue;
+        // Team Battle disables friendly fire. FFA has no team restriction.
+        if (this.mode === MATCH_RULES.modes.TEAMS && target.team === shooterTeam) continue;
+        const distance = Math.hypot(target.x - blast.x, target.z - blast.z);
+        if (distance > radius) continue;
+        const damage = Math.max(0, Math.round(baseDamage * (1 - distance / (radius * 1.5))));
+        if (damage > 0) impactsByPlayer.set(target.id, (impactsByPlayer.get(target.id) || 0) + damage);
+      }
+    }
+    const impacts = [];
+    for (const [playerId, totalDamage] of impactsByPlayer) {
+      const target = this.players.get(playerId);
+      const damage = Math.min(target.hp, totalDamage);
+      target.hp = Math.max(0, target.hp - totalDamage);
+      if (target.hp === 0) target.alive = false;
+      shooter.damageDealt += damage;
+      if (!target.alive) shooter.eliminations++;
+      impacts.push({ playerId, damage, hp: target.hp, eliminated: !target.alive });
+    }
+    const objectImpacts = [...objectImpactsById.values()];
+    this.advanceTurn(now);
+    return {
+      shot: validated,
+      impact: { x, y, z, reason: impactReason, flightSeconds: Number(t.toFixed(2)), radius, submunitions: blastPoints.length - 1, submunitionPoints: blastPoints.slice(1).map(point => ({ x: point.x, y: point.y, z: point.z })), guided: Boolean(guidedTarget) },
+      impacts,
+      objectImpacts,
+      state: this.snapshot()
+    };
+  }
+
+  resolveDamage(targetId, damage, now = Date.now()) {
+    if (this.status !== 'combat') throw new Error('Match is not in combat');
+    const target = this.requirePlayer(targetId);
+    target.hp = Math.max(0, target.hp - Math.max(0, Math.min(100, Number(damage) || 0)));
+    if (target.hp === 0) target.alive = false;
+    this.advanceTurn(now);
+    return this.snapshot();
+  }
+
+  tick(now = Date.now()) {
+    if (this.status === 'deploying' && now >= this.turnDeadline) {
+      for (const player of this.players.values()) {
+        if (!player.landed) player.landed = true; // Keep the assigned safe spawn as timeout fallback.
+      }
+      this.beginCombat(now);
+      return { event: 'deployment-timeout', state: this.snapshot() };
+    }
+    if (this.status === 'combat' && now >= this.turnDeadline) {
+      this.advanceTurn(now);
+      return { event: 'turn-timeout', state: this.snapshot() };
+    }
+    return null;
+  }
+
+  skipExpiredTurn(now = Date.now()) {
+    if (this.status !== 'combat' || now < this.turnDeadline) return false;
+    this.advanceTurn(now);
+    return true;
+  }
+
+  advanceTurn(now = Date.now()) {
+    this.turnIndex++;
+    this.startTurn(now);
+  }
+
+  currentPlayerId() { return this.turnOrder[this.turnIndex] || null; }
+
+  requirePlayer(id) {
+    const player = this.players.get(id);
+    if (!player) throw new Error('Unknown player');
+    return player;
+  }
+
+  isMatchOver() {
+    const alive = [...this.players.values()].filter(p => p.alive);
+    if (this.mode === MATCH_RULES.modes.TEAMS) {
+      const teamsInitiallyPresent = new Set([...this.players.values()].map(p => p.team));
+      const livingTeams = new Set(alive.map(p => p.team));
+      return livingTeams.size <= 1 || alive.length === 0 || teamsInitiallyPresent.size < 2;
+    }
+    return alive.length <= 1;
+  }
+
+  finishMatch() {
+    const alive = [...this.players.values()].filter(p => p.alive);
+    this.winner = alive.length === 0 ? null : this.mode === MATCH_RULES.modes.TEAMS ? (alive[0]?.team ?? null) : (alive[0]?.id ?? null);
+    this.status = 'finished';
+  }
+
+  snapshot() {
+    return {
+      matchId: this.matchId, mode: this.mode, status: this.status, hostId: this.hostId, currentPlayerId: this.currentPlayerId(),
+      turnDeadline: this.turnDeadline, winner: this.winner,
+      players: [...this.players.values()].map(p => ({ ...p })),
+      destructibles: [...this.destructibles.values()].map(({ id, kind, x, y, z, hp, alive }) => ({ id, kind, x, y, z, hp, alive }))
+    };
+  }
+}

@@ -1,23 +1,36 @@
-# TANK BATTLE — Android/Web foundation
+# TANK BATTLE — Android / Web prototype
 
-This is the first source-code foundation, not the completed game or a finished APK.
+TANK BATTLE is an in-development, turn-based 3D tank artillery game. This repository contains a playable-development prototype, not a finished commercial game.
 
-## Current contents
-- PlayCanvas 3D scene and lighting
-- Temporary tank blockout with hull, tracks, turret and cannon
-- Basic touch joystick and turret drag control
-- Temporary battlefield, river bed, bridge and snow-ridge blockout
-- Vite build setup
-- Capacitor Android wrapper configuration
+## Implemented prototype features
 
-## Important limitations
-- This is a visual/controls foundation only.
-- The tank and environment are primitive blockout geometry, not professional final assets.
-- No projectile physics, damage, terrain deformation, deployment sequence, lobby, multiplayer server, account system, progression or monetization yet.
-- No APK has been built or device-tested.
-- High-end visual quality requires properly licensed optimized GLB assets, PBR textures, environment work and extensive performance testing.
+- PlayCanvas 3D scene, lighting, touch movement and turret aiming controls.
+- Procedural Frozen River arena blockout with a river, bridge, bunkers, props and deployment markers.
+- Artillery aiming controls and local projectile / impact visual prototype.
+- WebSocket room server with up to four human/AI seats and Free For All / Team Battle modes.
+- Server-controlled baseline AI opponents that fill vacant seats when the host starts a match; AI uses the authoritative shot resolver.
+- Match combat statistics and local XP/level progression stored in WebView local storage.
+- Server-owned deployment phase, turn clock, movement allowance, shot validation, projectile resolution, player damage and elimination.
+- Server-side arena prop registry, simplified projectile/prop collision and destructible-object health synchronization.
+- Android packaging workflow in GitHub Actions that produces a **debug APK**.
 
-## Development
+## Known limitations — not production complete
+
+- Tank and environment geometry are still mostly procedural blockout, not final realistic production assets.
+- The arena is a prototype approximation; it does not yet have full terrain elevation, mesh-accurate collision or real terrain deformation.
+- Projectile collision is simplified server-side geometry, not full mesh / terrain physics. Weapon behavior and balance still need validation.
+- Destructible objects use simplified hit volumes and visual proxies; stable per-object visual mapping and debris need further work.
+- Multiplayer is still a prototype WebSocket room server and has no public hosting, matchmaking, authentication, cross-device accounts, or production anti-cheat.
+- Reconnect tokens, a 90-second disconnect grace/forfeit policy, empty-room cleanup, 16 KiB message cap and per-connection message rate limiting are implemented, but need real multi-device testing.
+- AI is currently a baseline artillery opponent: it selects the nearest valid enemy and fires a standard shell. AI movement, pickups, special-weapon decisions and difficulty settings are not implemented.
+- XP and profile data are local to the device/browser. There is no server-side account or cloud persistence yet.
+- Deployment is not yet the complete cargo-plane / steerable parachute sequence.
+- The arena includes original first-pass SVG snow/ice surface maps, but no third-party production tank GLB, scanned photorealistic PBR set, full audio suite or final production art has been integrated.
+- Graphics profiles are implementation targets, not measured benchmarks. The target iQOO Neo 10 has not yet been physically tested.
+- A debug APK has been produced by CI previously, but it is not a signed release and has not been verified as a complete match on the target phone.
+
+## Run locally
+
 Requires Node.js 20+ and npm.
 
 ```bash
@@ -25,35 +38,31 @@ npm install
 npm run dev
 ```
 
-Production web build:
+Run the multiplayer server in a separate terminal:
 
 ```bash
-npm run build
+cd server
+npm install
+npm test
+npm start
 ```
 
-Android wrapper (requires Android SDK/JDK in a build environment):
+The default HTTP/WebSocket port is `2567`. The server exposes `GET /health` for basic host health checks. The in-game default address `ws://localhost:2567` is suitable only when the game and server run on the same device. For online play, deploy the server and configure a reachable `wss://` endpoint.
 
-```bash
-npx cap add android
-npx cap sync android
-npx cap open android
-```
+## Build Android debug APK
 
-The Android build should be produced in a cloud/CI environment because the intended developer workflow is phone-only.
+The GitHub Actions workflow **Build TANK BATTLE Android APK** runs on pushes to development branches, pull requests to main, or manual dispatch. It builds the web bundle, adds/syncs Capacitor Android, runs Gradle `assembleDebug`, and uploads the artifact `tank-battle-debug-apk`.
 
-## Next milestones
-1. Replace blockout tank with a licensed animated GLB tank.
-2. Build the Frozen River terrain and environment.
-3. Implement proper tank movement, aiming, projectile physics and damage.
-4. Add authoritative online multiplayer and four-player turn manager.
-5. Add deployment, lobby, progression and final Android packaging.
+The artifact is a debug APK for testing, not a signed Play Store release. Install and test it on a physical Android device before treating a build as playable.
 
-## Build an APK in GitHub Actions
-1. Upload this project to a new GitHub repository.
-2. Open the repository's Actions tab.
-3. Select `Build TANK BATTLE Android APK`.
-4. Choose `Run workflow`.
-5. When the workflow finishes, download the `tank-battle-debug-apk` artifact.
-6. Extract the ZIP and install `app-debug.apk` on an Android test device.
+## Development priorities
 
-This workflow produces a debug APK for testing, not a signed Play Store release.
+1. Harden the server-authoritative core rules and WebSocket lifecycle.
+2. Complete four-player online match flow and deployment.
+3. Replace procedural placeholders with optimized, commercially usable free assets.
+4. Improve the Frozen River arena, collision, effects and audio.
+5. Complete lobby, HUD, results, progression and settings.
+6. Add server-hosting/authentication and cloud profile persistence.
+7. Profile and test on the target Android device, then produce a signed release build.
+
+All third-party assets must be checked for their exact license and recorded in `ASSET_CREDITS.md`. The project currently follows a free-assets-only policy.

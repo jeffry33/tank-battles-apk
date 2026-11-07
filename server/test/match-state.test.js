@@ -124,3 +124,30 @@ test('match snapshots include destructible object health for late join synchroni
   assert.equal(state.destructibles.length, 14);
   assert.equal(state.destructibles.find(item => item.id === 'bunker-west').hp, 160);
 });
+
+
+test('landing request rejects non-finite coordinates before terrain checks', () => {
+  const match = new MatchState();
+  match.addPlayer('p1');
+  match.addPlayer('p2');
+  match.beginDeployment('p1', 1000);
+  assert.throws(() => match.setLanding('p1', Number.NaN, 8, false), /Invalid landing/);
+  assert.throws(() => match.setLanding('p1', 0, Number.POSITIVE_INFINITY, false), /Invalid landing/);
+});
+
+test('deployment timeout moves non-landing players to their assigned safe spawns', () => {
+  const match = new MatchState();
+  match.addPlayer('p1');
+  match.addPlayer('p2');
+  match.beginDeployment('p1', 1000);
+  const result = match.tick(31000);
+  assert.equal(result.event, 'deployment-timeout');
+  assert.equal(match.status, 'combat');
+  assert.ok([...match.players.values()].every(player => player.landed));
+});
+
+test('room cannot exceed the four-player match limit', () => {
+  const match = new MatchState();
+  for (let i = 1; i <= 4; i++) match.addPlayer('p' + i);
+  assert.throws(() => match.addPlayer('p5'), /full/);
+});

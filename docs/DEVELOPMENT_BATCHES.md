@@ -116,3 +116,15 @@ A source-code change is not considered complete until the relevant CI checks pas
 **Still needs implementation / validation**
 - Exercise the limits and reconnect flow with real concurrent clients and tune them against normal mobile network behavior.
 - Add authentication, host migration, persistent room state and production hosting protections.
+
+
+## Batch 10 — Lobby identity and match entry
+
+**Implemented in source**
+- Added a commander-name field to the multiplayer lobby, capped at 20 characters.
+- The selected name is sent when joining a room and appears in the server-owned player roster.
+- Room ID is capped in the UI to the same 32-character limit enforced by the server.
+
+**Still needs implementation / validation**
+- Add ready-up state, invite/share-room flow, matchmaking and a dedicated lobby screen.
+- Validate four clients and both FFA / 2v2 flows on real network connections.

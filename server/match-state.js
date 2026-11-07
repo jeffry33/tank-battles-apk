@@ -151,8 +151,24 @@ export class MatchState {
     let x = shooter.x, y = 1.8, z = shooter.z, t = 0;
     const gravity = 9.81, step = 0.04;
     let impactReason = 'ground';
+    const guidedTarget = validated.weapon === 'guided'
+      ? [...this.players.values()]
+          .filter(target => target.alive && target.id !== id &&
+            !(this.mode === MATCH_RULES.modes.TEAMS && target.team === shooter.team))
+          .sort((a, b) => Math.hypot(a.x - shooter.x, a.z - shooter.z) - Math.hypot(b.x - shooter.x, b.z - shooter.z))[0]
+      : null;
     while (t < 8) {
       t += step;
+      if (guidedTarget) {
+        // Server-authoritative homing: steer the missile gradually, preserving speed.
+        const desired = { x: guidedTarget.x - x, y: 0.8 - y, z: guidedTarget.z - z };
+        const length = Math.hypot(desired.x, desired.y, desired.z) || 1;
+        const speedNow = Math.hypot(vx, vy, vz);
+        const steer = 0.12;
+        vx = vx * (1 - steer) + desired.x / length * speedNow * steer;
+        vy = vy * (1 - steer) + desired.y / length * speedNow * steer;
+        vz = vz * (1 - steer) + desired.z / length * speedNow * steer;
+      }
       x += vx * step;
       y += vy * step - 0.5 * gravity * step * step;
       z += vz * step;
@@ -172,40 +188,53 @@ export class MatchState {
         impactReason = 'boundary'; break;
       }
     }
-    const radius = validated.weapon === 'heavy' ? 5.5 : validated.weapon === 'cluster' ? 4.8 : validated.weapon === 'guided' ? 4.5 : 4;
-    const baseDamage = validated.weapon === 'heavy' ? 42 : validated.weapon === 'cluster' ? 26 : validated.weapon === 'guided' ? 34 : 30;
-    const impacts = [];
-    const objectImpacts = [];
-    for (const object of this.destructibles.values()) {
-      if (!object.alive) continue;
-      const distance = Math.hypot(object.x - x, object.y - y, object.z - z);
-      const reach = radius + object.radius;
-      if (distance > reach) continue;
-      const damage = Math.max(0, Math.round(baseDamage * (1 - distance / reach)));
-      if (!damage) continue;
-      object.hp = Math.max(0, object.hp - damage);
-      if (object.hp === 0) object.alive = false;
-      objectImpacts.push({ id: object.id, hp: object.hp, alive: object.alive });
-    }
+    const radius = validated.weapon === 'heavy' ? 5.5 : validated.weapon === 'cluster' ? 2.6 : validated.weapon === 'guided' ? 4.5 : 4;
+    const baseDamage = validated.weapon === 'heavy' ? 42 : validated.weapon === 'cluster' ? 24 : validated.weapon === 'guided' ? 34 : 30;
+    const blastPoints = validated.weapon === 'cluster'
+      ? [
+          { x, y, z },
+          { x: x - 2.2, y, z }, { x: x + 2.2, y, z },
+          { x, y, z: z - 2.2 }, { x, y, z: z + 2.2 }
+        ]
+      : [{ x, y, z }];
+    const impactsByPlayer = new Map();
+    const objectImpactsById = new Map();
     const shooterTeam = shooter.team;
-    for (const target of this.players.values()) {
-      if (!target.alive || target.id === shooter.id) continue;
-      // Team Battle disables friendly fire. FFA has no team restriction.
-      if (this.mode === MATCH_RULES.modes.TEAMS && target.team === shooterTeam) continue;
-      const distance = Math.hypot(target.x - x, target.z - z);
-      if (distance <= radius) {
+    for (const blast of blastPoints) {
+      for (const object of this.destructibles.values()) {
+        if (!object.alive) continue;
+        const distance = Math.hypot(object.x - blast.x, object.y - blast.y, object.z - blast.z);
+        const reach = radius + object.radius;
+        if (distance > reach) continue;
+        const damage = Math.max(0, Math.round(baseDamage * (1 - distance / reach)));
+        if (!damage) continue;
+        object.hp = Math.max(0, object.hp - damage);
+        if (object.hp === 0) object.alive = false;
+        objectImpactsById.set(object.id, { id: object.id, hp: object.hp, alive: object.alive });
+      }
+      for (const target of this.players.values()) {
+        if (!target.alive || target.id === shooter.id) continue;
+        // Team Battle disables friendly fire. FFA has no team restriction.
+        if (this.mode === MATCH_RULES.modes.TEAMS && target.team === shooterTeam) continue;
+        const distance = Math.hypot(target.x - blast.x, target.z - blast.z);
+        if (distance > radius) continue;
         const damage = Math.max(0, Math.round(baseDamage * (1 - distance / (radius * 1.5))));
-        if (damage > 0) {
-          target.hp = Math.max(0, target.hp - damage);
-          if (target.hp === 0) target.alive = false;
-          impacts.push({ playerId: target.id, damage, hp: target.hp, eliminated: !target.alive });
-        }
+        if (damage > 0) impactsByPlayer.set(target.id, (impactsByPlayer.get(target.id) || 0) + damage);
       }
     }
+    const impacts = [];
+    for (const [playerId, totalDamage] of impactsByPlayer) {
+      const target = this.players.get(playerId);
+      const damage = Math.min(target.hp, totalDamage);
+      target.hp = Math.max(0, target.hp - totalDamage);
+      if (target.hp === 0) target.alive = false;
+      impacts.push({ playerId, damage, hp: target.hp, eliminated: !target.alive });
+    }
+    const objectImpacts = [...objectImpactsById.values()];
     this.advanceTurn(now);
     return {
       shot: validated,
-      impact: { x, y, z, reason: impactReason, flightSeconds: Number(t.toFixed(2)), radius },
+      impact: { x, y, z, reason: impactReason, flightSeconds: Number(t.toFixed(2)), radius, submunitions: blastPoints.length - 1, guided: Boolean(guidedTarget) },
       impacts,
       objectImpacts,
       state: this.snapshot()

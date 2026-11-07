@@ -109,7 +109,10 @@ A source-code change is not considered complete until the relevant CI checks pas
 - Added a rolling-window per-connection message limiter (50 messages per 10 seconds).
 - Set a 16 KiB maximum WebSocket payload to reduce oversized-message abuse.
 - Added deterministic unit tests for rate-limit boundaries and invalid configuration.
+- Added a 90-second reconnect grace period; disconnected players are forfeited after expiry and cannot reuse the expired token.
+- Empty waiting rooms are reclaimed after the same grace period.
+- Added match-state tests for reconnect-before-expiry and automatic forfeit/turn advancement.
 
 **Still needs implementation / validation**
-- Exercise the limits with real concurrent clients and tune them against normal mobile network behavior.
-- Add authentication, reconnect expiry/forfeit policy, room lifecycle cleanup and production hosting protections.
+- Exercise the limits and reconnect flow with real concurrent clients and tune them against normal mobile network behavior.
+- Add authentication, host migration, persistent room state and production hosting protections.

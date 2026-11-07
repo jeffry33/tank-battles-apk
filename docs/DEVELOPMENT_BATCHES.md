@@ -124,6 +124,9 @@ A source-code change is not considered complete until the relevant CI checks pas
 - Added a commander-name field to the multiplayer lobby, capped at 20 characters.
 - The selected name is sent when joining a room and appears in the server-owned player roster.
 - Room ID is capped in the UI to the same 32-character limit enforced by the server.
+- Added server-authoritative READY / NOT READY state; only connected players can ready up.
+- Host can start deployment only when at least two connected players are present and every connected player is ready.
+- Added tests for the ready-up gate and disconnected-player rejection.
 
 **Still needs implementation / validation**
 - Add ready-up state, invite/share-room flow, matchmaking and a dedicated lobby screen.

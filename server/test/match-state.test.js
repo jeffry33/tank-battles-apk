@@ -10,6 +10,7 @@ function combatMatch(mode = MATCH_RULES.modes.FFA) {
     match.addPlayer('p3');
     match.addPlayer('p4');
   }
+  for (const id of match.players.keys()) match.setReady(id, true);
   match.beginDeployment('p1', 1000);
   for (const [id, p] of match.players) match.setLanding(id, p.x, p.z, true);
   return match;

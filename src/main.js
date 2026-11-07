@@ -353,6 +353,33 @@ document.getElementById('start-deployment')?.insertAdjacentHTML('afterend',
 document.getElementById('land-tank')?.addEventListener('click', () => {
   multiplayer.land(myLandingX, myLandingZ);
 });
+app.on('update', dt => {
+  for (let i = networkProjectiles.length - 1; i >= 0; i--) {
+    const projectile = networkProjectiles[i];
+    projectile.elapsed += dt;
+    const t = Math.min(projectile.elapsed, projectile.duration);
+    const position = projectile.origin.clone().add(projectile.velocity.clone().mulScalar(t));
+    position.y -= 0.5 * 9.81 * t * t;
+    if (projectile.elapsed >= projectile.duration) {
+      projectile.entity.destroy();
+      spawnNetworkExplosion(projectile.impact, projectile.impact.radius);
+      networkProjectiles.splice(i, 1);
+    } else {
+      projectile.entity.setPosition(position);
+    }
+  }
+  for (let i = networkExplosions.length - 1; i >= 0; i--) {
+    const explosion = networkExplosions[i];
+    explosion.life -= dt;
+    const progress = 1 - Math.max(0, explosion.life) / explosion.duration;
+    const scale = 0.6 + progress * explosion.radius * 0.55;
+    explosion.entity.setLocalScale(scale, scale, scale);
+    if (explosion.life <= 0) {
+      explosion.entity.destroy();
+      networkExplosions.splice(i, 1);
+    }
+  }
+});
 app.on('update', () => {
   if (!parachuteRigs.size || !deploymentStartAt) return;
   const elapsed = (Date.now() - deploymentStartAt) / 1000;

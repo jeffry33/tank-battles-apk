@@ -169,5 +169,5 @@ test('eliminated player cannot reconnect into a match', () => {
   const match = new MatchState();
   match.addPlayer('p1');
   match.players.get('p1').alive = false;
-  assert.throws(() => match.reconnectPlayer('p1'), /cannot rejoin/);
+  assert.throws(() => match.reconnectPlayer('p1'), /no longer rejoin/);
 });

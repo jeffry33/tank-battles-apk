@@ -548,6 +548,9 @@ app.on('update', dt => {
     if (projectile.elapsed >= projectile.duration) {
       projectile.entity.destroy();
       spawnNetworkExplosion(projectile.impact, projectile.impact.radius);
+      for (const submunition of (projectile.impact.submunitionPoints || [])) {
+        spawnNetworkExplosion(submunition, Math.max(1.5, (projectile.impact.radius || 4) * 0.58));
+      }
       networkProjectiles.splice(i, 1);
     } else {
       projectile.entity.setPosition(position);

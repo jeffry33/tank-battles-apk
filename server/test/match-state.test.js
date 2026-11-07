@@ -100,3 +100,27 @@ test('tank movement cannot enter deep water or cross arena boundary', () => {
   p.x = 47.5; p.z = -30;
   assert.throws(() => match.updateMovement('p1', 48.2, -30, 0, 2000), /blocked/);
 });
+
+
+test('tank movement is blocked when it would overlap another living tank', () => {
+  const match = combatMatch();
+  const p2 = match.players.get('p2');
+  p2.x = -27; p2.z = -30;
+  assert.throws(() => match.updateMovement('p1', -29, -30, 0, 2000), /another tank/);
+});
+
+test('landing zones must keep safe spacing between tanks', () => {
+  const match = new MatchState();
+  match.addPlayer('p1');
+  match.addPlayer('p2');
+  match.beginDeployment('p1', 1000);
+  match.setLanding('p1', -30, -30, true);
+  assert.throws(() => match.setLanding('p2', -28, -30, true), /too close/);
+});
+
+test('match snapshots include destructible object health for late join synchronization', () => {
+  const match = new MatchState();
+  const state = match.snapshot();
+  assert.equal(state.destructibles.length, 14);
+  assert.equal(state.destructibles.find(item => item.id === 'bunker-west').hp, 160);
+});

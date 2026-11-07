@@ -21,7 +21,7 @@ function publicState(room) {
 function getRoom(roomId, mode) {
   let room = rooms.get(roomId);
   if (!room) {
-    room = { id: roomId, match: new MatchState(mode), clients: new Set(), playerSockets: new Map() };
+    room = { id: roomId, match: new MatchState(mode), clients: new Set(), playerSockets: new Map(), reconnectTokens: new Map() };
     rooms.set(roomId, room);
   }
   return room;
@@ -44,13 +44,31 @@ wss.on('connection', socket => {
         const mode = message.mode === MATCH_RULES.modes.TEAMS ? MATCH_RULES.modes.TEAMS : MATCH_RULES.modes.FFA;
         const room = getRoom(roomId, mode);
         if (room.match.mode !== mode) throw new Error('Room game mode does not match');
-        const playerId = socket.id;
-        room.match.addPlayer(playerId, String(message.displayName || 'Commander'));
+        let playerId;
+        let reconnectToken;
+        if (message.reconnectToken) {
+          const existingId = [...room.reconnectTokens.entries()]
+            .find(([, token]) => token === message.reconnectToken)?.[0];
+          if (!existingId) throw new Error('Reconnect token is invalid for this room');
+          playerId = existingId;
+          const existingSocket = room.playerSockets.get(playerId);
+          if (existingSocket && existingSocket !== socket) {
+            room.clients.delete(existingSocket);
+            existingSocket.close(4001, 'Session replaced by reconnect');
+          }
+          room.match.reconnectPlayer(playerId);
+          reconnectToken = message.reconnectToken;
+        } else {
+          playerId = socket.id;
+          room.match.addPlayer(playerId, String(message.displayName || 'Commander'));
+          reconnectToken = randomUUID();
+          room.reconnectTokens.set(playerId, reconnectToken);
+        }
         room.clients.add(socket);
         room.playerSockets.set(playerId, socket);
         socket.room = room;
         socket.playerId = playerId;
-        send(socket, 'joined', { playerId, roomId, state: publicState(room) });
+        send(socket, 'joined', { playerId, roomId, reconnectToken, state: publicState(room) });
         broadcast(room, 'state', { state: publicState(room) });
         return;
       }
@@ -101,8 +119,13 @@ wss.on('connection', socket => {
     const room = socket.room;
     if (!room) return;
     room.clients.delete(socket);
-    // Disconnects are not yet handled as eliminations; retain player state for reconnect work.
-    if (room.clients.size === 0 && room.match.status === 'waiting') rooms.delete(room.id);
+    if (room.playerSockets.get(socket.playerId) === socket) {
+      room.playerSockets.delete(socket.playerId);
+      room.match.markDisconnected(socket.playerId);
+      broadcast(room, 'state', { state: publicState(room) });
+    }
+    // Keep the room and player slot so the same client can resume with its private token.
+    if (room.clients.size === 0 && room.match.status === 'waiting' && room.match.players.size === 0) rooms.delete(room.id);
   });
 });
 

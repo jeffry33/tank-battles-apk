@@ -296,3 +296,15 @@ test('AI controller never targets a teammate in Team Battle', () => {
   const shot = chooseBotShot(match, bot);
   assert.notEqual(shot.targetId, 'p3');
 });
+
+
+test('solo host may start after readying and then fill remaining seats with bots', () => {
+  const match = new MatchState();
+  match.addPlayer('human');
+  match.setReady('human', true);
+  match.addBotPlayers();
+  match.beginDeployment('human', 5000);
+  assert.equal(match.status, 'deploying');
+  assert.equal(match.players.size, 4);
+  assert.equal([...match.players.values()].filter(player => player.isBot && player.landed).length, 3);
+});

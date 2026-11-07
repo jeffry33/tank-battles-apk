@@ -203,7 +203,8 @@ test('disconnected player is eliminated after the reconnect grace period', () =>
   assert.deepEqual(match.expireDisconnectedPlayers(94999, 90000), []);
   assert.deepEqual(match.expireDisconnectedPlayers(95000, 90000), ['p1']);
   assert.equal(match.players.get('p1').alive, false);
-  assert.equal(match.currentPlayerId(), 'p2');
+  assert.equal(match.status, 'finished');
+  assert.equal(match.winner, 'p2');
 });
 
 test('disconnected player can reconnect before the grace period expires', () => {

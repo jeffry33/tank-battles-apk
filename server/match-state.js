@@ -99,6 +99,56 @@ export class MatchState {
     };
   }
 
+  resolveShot(id, shot, now = Date.now()) {
+    const validated = this.submitShot(id, shot, now);
+    const shooter = this.requirePlayer(id);
+    const yaw = validated.yaw * Math.PI / 180;
+    const elevation = validated.elevation * Math.PI / 180;
+    const speed = validated.power / 100 * 42;
+    const vx = -Math.sin(yaw) * Math.cos(elevation) * speed;
+    const vy = Math.sin(elevation) * speed;
+    const vz = -Math.cos(yaw) * Math.cos(elevation) * speed;
+    let x = shooter.x, y = 1.8, z = shooter.z, t = 0;
+    const gravity = 9.81, step = 0.04;
+    let impactReason = 'ground';
+    while (t < 8) {
+      t += step;
+      x += vx * step;
+      y += vy * step - 0.5 * gravity * step * step;
+      z += vz * step;
+      // Simple tank hit test; terrain and static-object collision are future work.
+      const hit = [...this.players.values()].find(target => target.alive && target.id !== id &&
+        Math.hypot(target.x - x, target.z - z) < 1.6 && Math.abs(y - 0.8) < 1.6);
+      if (hit) { impactReason = 'tank'; break; }
+      if (y <= 0) { y = 0; break; }
+      if (Math.abs(x) > MATCH_RULES.arenaLimit || Math.abs(z) > MATCH_RULES.arenaLimit) {
+        impactReason = 'boundary'; break;
+      }
+    }
+    const radius = validated.weapon === 'heavy' ? 5.5 : validated.weapon === 'cluster' ? 4.8 : validated.weapon === 'guided' ? 4.5 : 4;
+    const baseDamage = validated.weapon === 'heavy' ? 42 : validated.weapon === 'cluster' ? 26 : validated.weapon === 'guided' ? 34 : 30;
+    const impacts = [];
+    for (const target of this.players.values()) {
+      if (!target.alive) continue;
+      const distance = Math.hypot(target.x - x, target.z - z);
+      if (distance <= radius) {
+        const damage = Math.max(0, Math.round(baseDamage * (1 - distance / (radius * 1.5))));
+        if (damage > 0) {
+          target.hp = Math.max(0, target.hp - damage);
+          if (target.hp === 0) target.alive = false;
+          impacts.push({ playerId: target.id, damage, hp: target.hp, eliminated: !target.alive });
+        }
+      }
+    }
+    this.advanceTurn(now);
+    return {
+      shot: validated,
+      impact: { x, y, z, reason: impactReason, flightSeconds: Number(t.toFixed(2)), radius },
+      impacts,
+      state: this.snapshot()
+    };
+  }
+
   resolveDamage(targetId, damage, now = Date.now()) {
     if (this.status !== 'combat') throw new Error('Match is not in combat');
     const target = this.requirePlayer(targetId);

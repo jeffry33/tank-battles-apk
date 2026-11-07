@@ -185,7 +185,7 @@ app.on('update', dt => {
     if (timer) timer.textContent = 'TURN ' + remaining + 's';
   }
   const forward = -moveY*dt*7;
-  if (multiplayer.playerId && isDeployingNetwork) {
+  if (multiplayer.playerId && isDeployingNetwork && !hasLandedNetwork) {
     myLandingX = Math.max(-44, Math.min(44, myLandingX + moveX * dt * 10));
     myLandingZ = Math.max(-44, Math.min(44, myLandingZ - moveY * dt * 10));
   } else if (!combat.turnLocked && (!multiplayer.playerId || isMyNetworkTurn)) tank.translateLocal(moveX*dt*7,0,forward);
@@ -288,6 +288,46 @@ const parachuteRigs = new Map();
 let deploymentStartAt = 0;
 let myLandingX = -30, myLandingZ = -30;
 let isDeployingNetwork = false;
+let hasLandedNetwork = false;
+let deploymentPlane = null;
+let landingMarker = null;
+const deploymentPlaneMaterial = material([0.25, 0.29, 0.31], 0.35, 0.48);
+const landingMarkerMaterial = material([0.2, 0.9, 0.58], 0.2, 0.65);
+landingMarkerMaterial.emissive = new pc.Color(0.05, 0.42, 0.2);
+landingMarkerMaterial.update();
+function createDeploymentPlane() {
+  const plane = new pc.Entity('C-130 style deployment aircraft');
+  const fuselage = cylinder(plane, 'Transport fuselage', [0, 0, 0], [1.7, 1.7, 14], deploymentPlaneMaterial);
+  fuselage.setLocalEulerAngles(90, 0, 0);
+  box(plane, 'Transport main wing', [0, 0.1, -0.2], [25, 0.35, 3.8], deploymentPlaneMaterial);
+  box(plane, 'Transport horizontal tail', [0, 0.25, 5.7], [9, 0.25, 2], deploymentPlaneMaterial);
+  box(plane, 'Transport vertical tail', [0, 1.4, 5.8], [0.35, 2.8, 2.1], deploymentPlaneMaterial);
+  for (const side of [-1, 1]) {
+    const engine = cylinder(plane, 'Turboprop engine ' + side, [side * 7.2, -0.15, -0.4], [0.62, 0.62, 2.1], darkMat);
+    engine.setLocalEulerAngles(90, 0, 0);
+    const propeller = box(plane, 'Propeller ' + side, [side * 7.2, -0.15, -1.55], [2.8, 0.12, 0.18], metalMat);
+    propeller.setLocalEulerAngles(0, 0, 18);
+  }
+  app.root.addChild(plane);
+  return plane;
+}
+function createLandingMarker() {
+  const marker = new pc.Entity('Player landing target marker');
+  const ring = new pc.Entity('Landing target ring');
+  ring.addComponent('render', { type: 'cylinder', material: landingMarkerMaterial });
+  ring.setLocalScale(7.5, 0.12, 7.5);
+  marker.addChild(ring);
+  const cross = new pc.Entity('Landing target cross');
+  cross.addComponent('render', { type: 'box', material: landingMarkerMaterial });
+  cross.setLocalScale(8.5, 0.08, 0.22);
+  marker.addChild(cross);
+  const cross2 = new pc.Entity('Landing target cross 2');
+  cross2.addComponent('render', { type: 'box', material: landingMarkerMaterial });
+  cross2.setLocalScale(0.22, 0.08, 8.5);
+  marker.addChild(cross2);
+  app.root.addChild(marker);
+  return marker;
+}
 let isMyNetworkTurn = false;
 let networkTurnDeadline = 0;
 const multiplayer = new MultiplayerClient({
@@ -311,8 +351,14 @@ const multiplayer = new MultiplayerClient({
     }
     isDeployingNetwork = state.status === 'deploying';
     if (state.status === 'deploying' && !deploymentStartAt) deploymentStartAt = Date.now();
-    if (state.status !== 'deploying') deploymentStartAt = 0;
+    if (state.status !== 'deploying') {
+      deploymentStartAt = 0;
+      deploymentPlane?.destroy(); deploymentPlane = null;
+      landingMarker?.destroy(); landingMarker = null;
+    }
     if (state.status === 'deploying') {
+      if (!deploymentPlane) deploymentPlane = createDeploymentPlane();
+      if (!landingMarker) landingMarker = createLandingMarker();
       for (const player of (state.players || [])) {
         if (parachuteRigs.has(player.id)) continue;
         const rig = new pc.Entity('Parachute rig ' + player.displayName);
@@ -352,7 +398,8 @@ const multiplayer = new MultiplayerClient({
     networkStatus.textContent = 'ROOM ' + state.status.toUpperCase() + ' · ' + count + '/4 PLAYERS · ' + turn;
     for (const player of (state.players || [])) {
       if (player.id === multiplayer.playerId) {
-        myLandingX = player.x; myLandingZ = player.z;
+        hasLandedNetwork = Boolean(player.landed);
+        if (state.status !== 'deploying') { myLandingX = player.x; myLandingZ = player.z; }
         if (state.status === 'combat') {
           tank.setPosition(player.x, tank.getPosition().y, player.z);
           turretYaw = player.yaw || 0;
@@ -421,8 +468,9 @@ document.getElementById('fire')?.addEventListener('click', () => {
 
 document.getElementById('start-deployment')?.insertAdjacentHTML('afterend',
   '<button id="land-tank" style="padding:7px;background:#315b43;color:white;border:1px solid #9fc7a9;border-radius:5px">LAND</button>');
-document.getElementById('land-tank')?.addEventListener('click', () => {
-  multiplayer.land(myLandingX, myLandingZ);
+const landButton = document.getElementById('land-tank');
+landButton?.addEventListener('click', () => {
+  if (isDeployingNetwork && !hasLandedNetwork) multiplayer.land(myLandingX, myLandingZ);
 });
 app.on('update', dt => {
   if (recoilRemaining > 0) {
@@ -499,8 +547,15 @@ app.on('update', dt => {
   }
 });
 app.on('update', () => {
-  if (!parachuteRigs.size || !deploymentStartAt) return;
+  if (!deploymentStartAt) return;
   const elapsed = (Date.now() - deploymentStartAt) / 1000;
+  if (deploymentPlane) deploymentPlane.setPosition(0, 45, -55 + elapsed * 8);
+  if (landingMarker) {
+    landingMarker.setPosition(myLandingX, 0.22, myLandingZ);
+    landingMarker.enabled = !hasLandedNetwork;
+  }
+  if (landButton) landButton.disabled = !isDeployingNetwork || hasLandedNetwork;
+  if (!parachuteRigs.size) return;
   for (const [id, rig] of parachuteRigs) {
     const index = [...parachuteRigs.keys()].indexOf(id);
     const x = id === multiplayer.playerId ? myLandingX : ([-30,30,-30,30][index] || 0);

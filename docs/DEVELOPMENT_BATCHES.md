@@ -145,3 +145,18 @@ A source-code change is not considered complete until the relevant CI checks pas
 - Tune AI accuracy and difficulty levels; current controller uses one baseline difficulty and simple ballistic estimation.
 - AI movement, pickups, tactical positioning and special-weapon decisions are not implemented.
 - Verify FFA and 2v2 with one human and three bots in an actual browser session.
+
+
+## Batch 11 — Match statistics and local progression
+
+**Implemented in source**
+- Server snapshots now carry a stable match ID and per-player shots fired, damage dealt and eliminations.
+- Server increments combat statistics from the authoritative damage resolution, not client-reported values.
+- The client awards post-match XP for participation, victory, eliminations and damage, and displays the result with the player's level and total XP.
+- A processed-match ledger prevents repeated state broadcasts from awarding XP more than once for the same match.
+- Profile data is currently stored locally in the browser/WebView localStorage; it is not a cross-device or cloud account.
+
+**Still needs implementation / validation**
+- Add account authentication and server/database persistence before promising profile sync across devices.
+- Add profile screen, lifetime statistics, match history, cosmetic inventory and progression balancing.
+- Validate XP awards for FFA, 2v2, draws, reconnects and AI matches.

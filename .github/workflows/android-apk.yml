@@ -1,5 +1,9 @@
 name: Build TANK BATTLE Android APK
 
+concurrency:
+  group: tank-battle-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 on:
   workflow_dispatch:
   push:

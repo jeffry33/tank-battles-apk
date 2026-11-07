@@ -11,6 +11,7 @@ function combatMatch(mode = MATCH_RULES.modes.FFA) {
     match.addPlayer('p4');
   }
   for (const id of match.players.keys()) match.setReady(id, true);
+  for (const id of match.players.keys()) match.setReady(id, true);
   match.beginDeployment('p1', 1000);
   for (const [id, p] of match.players) match.setLanding(id, p.x, p.z, true);
   return match;
@@ -21,6 +22,7 @@ test('only the host can start deployment', () => {
   match.addPlayer('p1');
   match.addPlayer('p2');
   assert.throws(() => match.beginDeployment('p2', 1000), /host/);
+  for (const id of match.players.keys()) match.setReady(id, true);
   match.beginDeployment('p1', 1000);
   assert.equal(match.status, 'deploying');
 });
@@ -86,6 +88,7 @@ test('landing rejects deep river and bunker footprints but accepts the bridge', 
   const match = new MatchState();
   match.addPlayer('p1');
   match.addPlayer('p2');
+  for (const id of match.players.keys()) match.setReady(id, true);
   match.beginDeployment('p1', 1000);
   assert.throws(() => match.setLanding('p1', 0, -20, true), /safe terrain/);
   assert.throws(() => match.setLanding('p1', -20, 13, true), /safe terrain/);
@@ -114,6 +117,7 @@ test('landing zones must keep safe spacing between tanks', () => {
   const match = new MatchState();
   match.addPlayer('p1');
   match.addPlayer('p2');
+  for (const id of match.players.keys()) match.setReady(id, true);
   match.beginDeployment('p1', 1000);
   match.setLanding('p1', -30, -30, true);
   assert.throws(() => match.setLanding('p2', -28, -30, true), /too close/);
@@ -131,6 +135,7 @@ test('landing request rejects non-finite coordinates before terrain checks', () 
   const match = new MatchState();
   match.addPlayer('p1');
   match.addPlayer('p2');
+  for (const id of match.players.keys()) match.setReady(id, true);
   match.beginDeployment('p1', 1000);
   assert.throws(() => match.setLanding('p1', Number.NaN, 8, false), /Invalid landing/);
   assert.throws(() => match.setLanding('p1', 0, Number.POSITIVE_INFINITY, false), /Invalid landing/);
@@ -140,6 +145,7 @@ test('deployment timeout moves non-landing players to their assigned safe spawns
   const match = new MatchState();
   match.addPlayer('p1');
   match.addPlayer('p2');
+  for (const id of match.players.keys()) match.setReady(id, true);
   match.beginDeployment('p1', 1000);
   const result = match.tick(31000);
   assert.equal(result.event, 'deployment-timeout');
@@ -226,6 +232,7 @@ test('lobby requires every connected player to ready up before deployment', () =
   match.setReady('p1', true);
   assert.throws(() => match.beginDeployment('p1', 1000), /ready/);
   match.setReady('p2', true);
+  for (const id of match.players.keys()) match.setReady(id, true);
   match.beginDeployment('p1', 1000);
   assert.equal(match.status, 'deploying');
 });

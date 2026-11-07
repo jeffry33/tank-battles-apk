@@ -272,12 +272,7 @@ function spawnNetworkShot(data) {
   });
 }
 function spawnNetworkExplosion(position, radius) {
-  // Every client applies the same server-authoritative impact to its local destructible props.
-  destructibleWorld.applyImpact(
-    new pc.Vec3(position.x, Math.max(0, position.y), position.z),
-    radius || 4,
-    85
-  );
+  // Destructible health is updated from the server's objectImpacts payload in onShot.
   const fxMaterial = material([1, 0.26, 0.035], 0, 0.25);
   fxMaterial.emissive = new pc.Color(1, 0.12, 0.015);
   fxMaterial.update();

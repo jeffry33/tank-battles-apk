@@ -26,5 +26,5 @@ The process listens on the configured PORT (default 2567) and accepts WebSocket 
 - This is a prototype in-memory room server. Restarting the process clears active matches.
 - No authentication, matchmaking, database persistence, account system, moderation or production anti-cheat exists.
 - Configure provider-level connection limits, TLS, monitoring, backups and abuse protection before exposing it publicly.
-- The server has no automated health endpoint yet. Verify deployment using a WebSocket client and a real two-device test.
+- The server exposes GET /health for provider health checks. Also verify WebSocket upgrades and run a real two-device test.
 - Do not expose secrets in the Android app. Server-side secrets must be configured in the hosting provider's environment settings.

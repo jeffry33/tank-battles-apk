@@ -176,6 +176,13 @@ const multiplayer = new MultiplayerClient({
     isMyNetworkTurn = state.currentPlayerId === multiplayer.playerId;
     networkTurnDeadline = state.turnDeadline || 0;
     const turn = isMyNetworkTurn ? 'YOUR TURN' : 'OPPONENT TURN';
+    const lobby = document.getElementById('lobby-status');
+    if (lobby) {
+      const host = state.hostId === multiplayer.playerId;
+      lobby.textContent = state.status.toUpperCase() + ' · ' + count + '/4 · ' + (host ? 'HOST' : 'PLAYER') + ' · ' + (state.mode === 'team-battle' ? '2v2' : 'FFA');
+      const startButton = document.getElementById('start-deployment');
+      if (startButton) startButton.disabled = !host || count < 2 || state.status !== 'waiting';
+    }
     networkStatus.textContent = 'ROOM ' + state.status.toUpperCase() + ' · ' + count + '/4 PLAYERS · ' + turn;
     for (const player of (state.players || [])) {
       if (player.id === multiplayer.playerId) {
@@ -217,7 +224,8 @@ document.getElementById('connect-server')?.addEventListener('click', () => {
   const url = document.getElementById('server-url')?.value.trim();
   const roomId = document.getElementById('room-id')?.value.trim() || 'quick-match';
   if (!url) { networkStatus.textContent = 'Enter a WebSocket server URL'; return; }
-  multiplayer.connect(url, roomId, 'free-for-all', 'Commander');
+  const mode = document.getElementById('game-mode')?.value || 'free-for-all';
+  multiplayer.connect(url, roomId, mode, 'Commander');
 });
 document.getElementById('start-deployment')?.addEventListener('click', () => {
   multiplayer.startDeployment();

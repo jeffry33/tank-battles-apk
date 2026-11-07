@@ -140,6 +140,11 @@ let networkMoveAccumulator = 0;
 app.on('update', dt => {
   shotCooldown=Math.max(0,shotCooldown-dt);
   networkMoveAccumulator += dt;
+  if (multiplayer.playerId && networkTurnDeadline > 0) {
+    const remaining = Math.max(0, Math.ceil((networkTurnDeadline - Date.now()) / 1000));
+    const timer = document.getElementById('turn-timer');
+    if (timer) timer.textContent = 'TURN ' + remaining + 's';
+  }
   const forward = -moveY*dt*7;
   if (!combat.turnLocked && (!multiplayer.playerId || isMyNetworkTurn)) tank.translateLocal(moveX*dt*7,0,forward);
   if (!combat.turnLocked && (!multiplayer.playerId || isMyNetworkTurn)) turret.setEulerAngles(0,turretYaw,0);
@@ -163,11 +168,13 @@ document.getElementById('message').textContent='TANK BATTLE · Visual foundation
 const networkStatus = document.getElementById('message');
 const remoteTanks = new Map();
 let isMyNetworkTurn = false;
+let networkTurnDeadline = 0;
 const multiplayer = new MultiplayerClient({
   onStatus: status => { networkStatus.textContent = status; },
   onState: state => {
     const count = state.players?.length ?? 0;
     isMyNetworkTurn = state.currentPlayerId === multiplayer.playerId;
+    networkTurnDeadline = state.turnDeadline || 0;
     const turn = isMyNetworkTurn ? 'YOUR TURN' : 'OPPONENT TURN';
     networkStatus.textContent = 'ROOM ' + state.status.toUpperCase() + ' · ' + count + '/4 PLAYERS · ' + turn;
     for (const player of (state.players || [])) {

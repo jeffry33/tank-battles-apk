@@ -47,7 +47,7 @@ npm test
 npm start
 ```
 
-The default WebSocket port is `2567`. The in-game default address `ws://localhost:2567` is suitable only when the game and server run on the same device. For online play, deploy the server and configure a reachable `wss://` endpoint.
+The default HTTP/WebSocket port is `2567`. The server exposes `GET /health` for basic host health checks. The in-game default address `ws://localhost:2567` is suitable only when the game and server run on the same device. For online play, deploy the server and configure a reachable `wss://` endpoint.
 
 ## Build Android debug APK
 

@@ -9,12 +9,13 @@ function makeMaterial(rgb, metalness = 0, gloss = 0.35) {
   return m;
 }
 
-function primitive(parent, name, type, position, scale, material, rotation = [0, 0, 0]) {
+function primitive(parent, name, type, position, scale, material, rotation = [0, 0, 0], arenaDestructibleId = null) {
   const entity = new pc.Entity(name);
   entity.addComponent('render', { type, material });
   entity.setLocalPosition(...position);
   entity.setLocalScale(...scale);
   entity.setLocalEulerAngles(...rotation);
+  if (arenaDestructibleId) entity.arenaDestructibleId = arenaDestructibleId;
   parent.addChild(entity);
   return entity;
 }
@@ -49,7 +50,7 @@ export function buildFrozenRiverArena(app) {
   // Bridge deck, side rails and support piers.
   primitive(root, 'Military bridge deck', 'box', [0, 0.42, 8], [18, 0.65, 7], wood);
   for (const side of [-1, 1]) {
-    primitive(root, 'Bridge rail ' + side, 'box', [side * 8.4, 1.15, 8], [0.38, 1.1, 7], metal);
+    primitive(root, 'Bridge rail ' + side, 'box', [side * 8.4, 1.15, 8], [0.38, 1.1, 7], metal, [0, 0, 0], side < 0 ? 'bridge-rail-west' : 'bridge-rail-east');
     for (let p = -1; p <= 1; p++) primitive(root, 'Bridge pier', 'box', [side * 5.2, -0.4, 8 + p * 2.4], [0.8, 2.4, 0.8], concrete);
   }
   for (let z = 5; z <= 11; z += 1.5) primitive(root, 'Bridge plank', 'box', [0, 0.77, z], [17.2, 0.08, 0.12], concrete);
@@ -57,11 +58,11 @@ export function buildFrozenRiverArena(app) {
   // Bunkers on both banks with visible firing slits.
   for (const side of [-1, 1]) {
     const bx = side * 20;
-    primitive(root, 'Concrete bunker', 'box', [bx, 1.2, 13], [10, 3.2, 8], concrete);
+    primitive(root, 'Concrete bunker', 'box', [bx, 1.2, 13], [10, 3.2, 8], concrete, [0, 0, 0], side < 0 ? 'bunker-west' : 'bunker-east');
     primitive(root, 'Bunker roof snow', 'box', [bx, 2.95, 13], [10.8, 0.35, 8.8], snow);
     primitive(root, 'Bunker firing slit', 'box', [bx, 1.55, 8.94], [3.6, 0.48, 0.12], darkRock);
     primitive(root, 'Bunker entrance', 'box', [bx + side * 3.4, 0.8, 13], [1.2, 2.0, 0.14], darkRock);
-    primitive(root, 'Sandbag wall', 'box', [bx - side * 7, 0.55, 5], [7, 1.1, 1.5], wood);
+    primitive(root, 'Sandbag wall', 'box', [bx - side * 7, 0.55, 5], [7, 1.1, 1.5], wood, [0, 0, 0], side < 0 ? 'sandbag-west' : 'sandbag-east');
   }
 
   // Pine clusters and boulders around the perimeter, avoiding the central river/bridge.
@@ -97,7 +98,7 @@ export function buildFrozenRiverArena(app) {
   for (let i = 0; i < 8; i++) {
     const x = (i % 4) * 2.4 - 3.6;
     const z = i < 4 ? -20 : 24;
-    primitive(root, 'Supply crate', 'box', [x + (i < 4 ? -20 : 20), 0.65, z], [1.3, 1.3, 1.3], wood);
+    primitive(root, 'Supply crate', 'box', [x + (i < 4 ? -20 : 20), 0.65, z], [1.3, 1.3, 1.3], wood, [0, 0, 0], 'supply-crate-' + (i + 1));
   }
   primitive(root, 'Radar mast', 'cylinder', [32, 4, -18], [0.18, 8, 0.18], metal);
   primitive(root, 'Radar dish', 'sphere', [32, 8.2, -18], [2.2, 0.45, 2.2], metal);

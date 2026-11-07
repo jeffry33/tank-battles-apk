@@ -86,6 +86,7 @@ wss.on('connection', socket => {
         broadcast(room, 'state', { state });
       } else if (message.type === 'start-deployment') {
         if (room.match.status !== 'waiting') throw new Error('Deployment already started');
+        room.match.addBotPlayers();
         room.match.beginDeployment(socket.playerId);
         broadcast(room, 'state', { state: publicState(room) });
       } else if (message.type === 'land') {
@@ -150,6 +151,26 @@ setInterval(() => {
     const expired = room.match.expireDisconnectedPlayers(now, RECONNECT_GRACE_MS);
     for (const playerId of expired) room.reconnectTokens.delete(playerId);
     if (expired.length) broadcast(room, 'state', { state: publicState(room) });
+    const current = room.match.status === 'combat' ? room.match.players.get(room.match.currentPlayerId()) : null;
+    if (current?.isBot) {
+      current.botThinkAt ??= now + 1200;
+      if (now >= current.botThinkAt) {
+        const enemies = [...room.match.players.values()].filter(p => p.alive && p.id !== current.id &&
+          !(room.match.mode === MATCH_RULES.modes.TEAMS && p.team === current.team));
+        if (enemies.length) {
+          const target = enemies.sort((a,b) => Math.hypot(a.x-current.x,a.z-current.z)-Math.hypot(b.x-current.x,b.z-current.z))[0];
+          const dx = target.x-current.x, dz = target.z-current.z;
+          const distance = Math.hypot(dx,dz);
+          const yaw = Math.atan2(-dx,-dz) * 180 / Math.PI;
+          const elevation = 38;
+          const requiredSpeed = Math.sqrt(Math.max(1,distance) * 9.81 / Math.max(0.2,Math.sin(2*elevation*Math.PI/180)));
+          const power = Math.max(25,Math.min(100,requiredSpeed/42*100));
+          const result = room.match.resolveShot(current.id,{yaw,elevation,power,weapon:'standard'},now);
+          broadcast(room,'shot-resolved',{playerId:current.id,shot:result.shot,impact:result.impact,impacts:result.impacts,objectImpacts:result.objectImpacts,state:result.state});
+        }
+        current.botThinkAt = null;
+      }
+    }
     const result = room.match.tick(now);
     if (result) {
       broadcast(room, 'phase-event', { event: result.event });

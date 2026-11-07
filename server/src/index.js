@@ -1,3 +1,4 @@
+import { createServer } from 'node:http';
 import { WebSocketServer } from 'ws';
 import { randomUUID } from 'node:crypto';
 import { MatchState, MATCH_RULES } from '../match-state.js';
@@ -5,7 +6,17 @@ import { createMessageRateLimiter } from '../rate-limit.js';
 import { chooseBotShot } from '../bot-controller.js';
 
 const PORT = Number(process.env.PORT || 2567);
-const wss = new WebSocketServer({ port: PORT, maxPayload: 16 * 1024 });
+const httpServer = createServer((request, response) => {
+  if (request.method === 'GET' && request.url === '/health') {
+    const payload = JSON.stringify({ status: 'ok', service: 'tank-battle-server', activeRooms: rooms.size });
+    response.writeHead(200, { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' });
+    response.end(payload);
+    return;
+  }
+  response.writeHead(404, { 'content-type': 'application/json; charset=utf-8' });
+  response.end(JSON.stringify({ error: 'Not found' }));
+});
+const wss = new WebSocketServer({ server: httpServer, maxPayload: 16 * 1024 });
 const rooms = new Map();
 const RECONNECT_GRACE_MS = 90000;
 
@@ -176,4 +187,4 @@ setInterval(() => {
   }
 }, 250);
 
-wss.on('listening', () => console.log(`TANK BATTLE WebSocket server listening on :${PORT}`));
+httpServer.listen(PORT, () => console.log(`TANK BATTLE server listening on :${PORT} (HTTP health + WebSocket)`));

@@ -61,6 +61,8 @@ export class MatchState {
     if (this.status !== 'deploying') throw new Error('Not in deployment phase');
     if (!valid || !Number.isFinite(x) || !Number.isFinite(z)) throw new Error('Invalid landing location');
     if (!isValidArenaPosition(x, z)) throw new Error('Landing outside safe terrain or inside a blocked area');
+    const occupied = [...this.players.values()].some(other => other.id !== id && other.landed && Math.hypot(other.x - x, other.z - z) < 4.5);
+    if (occupied) throw new Error('Landing zone is too close to another tank');
     player.x = x; player.z = z; player.landed = true;
     if ([...this.players.values()].every(p => p.landed)) this.beginCombat(Date.now());
     return this.snapshot();
@@ -100,6 +102,8 @@ export class MatchState {
     const distance = Math.hypot(dx, dz);
     if (distance > 1.25) throw new Error('Movement update exceeds allowed step');
     if (!isValidArenaPosition(x, z)) throw new Error('Movement blocked by water, terrain, or arena boundary');
+    const collidesWithTank = [...this.players.values()].some(other => other.id !== id && other.alive && Math.hypot(other.x - x, other.z - z) < 3.2);
+    if (collidesWithTank) throw new Error('Movement blocked by another tank');
     if (player.movedThisTurn + distance > MATCH_RULES.movementPerTurn) throw new Error('Movement allowance used');
     player.x = x; player.z = z; player.yaw = ((yaw % 360) + 360) % 360;
     player.movedThisTurn += distance;
@@ -256,7 +260,8 @@ export class MatchState {
     return {
       mode: this.mode, status: this.status, hostId: this.hostId, currentPlayerId: this.currentPlayerId(),
       turnDeadline: this.turnDeadline, winner: this.winner,
-      players: [...this.players.values()].map(p => ({ ...p }))
+      players: [...this.players.values()].map(p => ({ ...p })),
+      destructibles: [...this.destructibles.values()].map(({ id, kind, x, y, z, hp, alive }) => ({ id, kind, x, y, z, hp, alive }))
     };
   }
 }

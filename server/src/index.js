@@ -2,6 +2,7 @@ import { WebSocketServer } from 'ws';
 import { randomUUID } from 'node:crypto';
 import { MatchState, MATCH_RULES } from '../match-state.js';
 import { createMessageRateLimiter } from '../rate-limit.js';
+import { chooseBotShot } from '../bot-controller.js';
 
 const PORT = Number(process.env.PORT || 2567);
 const wss = new WebSocketServer({ port: PORT, maxPayload: 16 * 1024 });
@@ -155,18 +156,10 @@ setInterval(() => {
     if (current?.isBot) {
       current.botThinkAt ??= now + 1200;
       if (now >= current.botThinkAt) {
-        const enemies = [...room.match.players.values()].filter(p => p.alive && p.id !== current.id &&
-          !(room.match.mode === MATCH_RULES.modes.TEAMS && p.team === current.team));
-        if (enemies.length) {
-          const target = enemies.sort((a,b) => Math.hypot(a.x-current.x,a.z-current.z)-Math.hypot(b.x-current.x,b.z-current.z))[0];
-          const dx = target.x-current.x, dz = target.z-current.z;
-          const distance = Math.hypot(dx,dz);
-          const yaw = Math.atan2(-dx,-dz) * 180 / Math.PI;
-          const elevation = 38;
-          const requiredSpeed = Math.sqrt(Math.max(1,distance) * 9.81 / Math.max(0.2,Math.sin(2*elevation*Math.PI/180)));
-          const power = Math.max(25,Math.min(100,requiredSpeed/42*100));
-          const result = room.match.resolveShot(current.id,{yaw,elevation,power,weapon:'standard'},now);
-          broadcast(room,'shot-resolved',{playerId:current.id,shot:result.shot,impact:result.impact,impacts:result.impacts,objectImpacts:result.objectImpacts,state:result.state});
+        const shot = chooseBotShot(room.match, current);
+        if (shot) {
+          const result = room.match.resolveShot(current.id, shot, now);
+          broadcast(room, 'shot-resolved', { playerId: current.id, shot: result.shot, impact: result.impact, impacts: result.impacts, objectImpacts: result.objectImpacts, state: result.state });
         }
         current.botThinkAt = null;
       }

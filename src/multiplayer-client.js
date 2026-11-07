@@ -66,6 +66,7 @@ export class MultiplayerClient {
     return true;
   }
 
+  setReady(ready) { return this.send({ type: 'ready', ready: Boolean(ready) }); }
   startDeployment() { return this.send({ type: 'start-deployment' }); }
   land(x, z) { return this.send({ type: 'land', x, z }); }
   move(x, z, yaw) { return this.send({ type: 'move', x, z, yaw }); }

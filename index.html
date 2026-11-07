@@ -14,7 +14,10 @@
       <div class="status">FROZEN RIVER · MULTIPLAYER INTEGRATION TEST</div>
       <div id="graphics-panel"><label for="graphics-quality">GRAPHICS</label><select id="graphics-quality"><option value="high" selected>HIGH</option><option value="balanced">BALANCED</option><option value="low">LOW</option></select><span id="graphics-status">HIGH</span><span id="fps-counter">-- FPS</span></div>
       <div id="network-panel" style="position:absolute;top:54px;right:12px;z-index:10;display:flex;gap:5px;flex-wrap:wrap;max-width:290px;justify-content:flex-end"><input id="server-url" value="ws://localhost:2567" aria-label="Server WebSocket URL" style="width:165px;min-width:0;padding:7px;background:#14212b;color:#fff;border:1px solid #60717b;border-radius:5px"><input id="room-id" value="room-01" aria-label="Room ID" style="width:72px;min-width:0;padding:7px;background:#14212b;color:#fff;border:1px solid #60717b;border-radius:5px"><select id="game-mode" aria-label="Game mode" style="padding:7px;background:#14212b;color:#fff;border:1px solid #60717b;border-radius:5px"><option value="free-for-all">FFA</option><option value="team-battle">2v2</option></select><button id="connect-server">CONNECT</button><button id="start-deployment">START</button></div>
-      <div id="lobby-status" style="position:absolute;top:94px;right:12px;z-index:9;color:#fff;font:12px sans-serif;text-shadow:0 1px 3px #000">LOBBY · 0/4</div>\n      <div class="combat-hud"><span id="tank-hp">HP 100/100</span><span id="turn-timer">TURN 60s</span></div>
+      <div id="lobby-status" style="position:absolute;top:94px;right:12px;z-index:9;color:#fff;font:12px sans-serif;text-shadow:0 1px 3px #000">LOBBY · 0/4</div>
+      <div id="player-list" aria-live="polite"></div>
+      <div id="match-result" hidden></div>
+      <div class="combat-hud"><span id="tank-hp">HP 100/100</span><span id="turn-timer">TURN 60s</span></div>
       <div id="help">Drag the left pad to move · Drag AIM to rotate turret · FIRE to test</div>
       <div id="joystick"><div id="stick"></div></div>
       <div id="aim-pad">AIM</div>

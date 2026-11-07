@@ -9,6 +9,7 @@ export class ArtilleryCombat {
     this.message = message;
     this.hp = 100;
     this.turnSeconds = 60;
+    this.turnTransition = 0;
     this.turnLocked = false;
     this.projectiles = [];
     this.explosions = [];
@@ -78,6 +79,7 @@ export class ArtilleryCombat {
   }
 
   update(dt) {
+    if (this.turnTransition > 0) { this.turnTransition -= dt; if (this.turnTransition <= 0 && this.hp > 0) { this.turnLocked = false; this.turnSeconds = 60; this.message.textContent = 'YOUR TURN · Aim and fire'; } }
     if (!this.turnLocked && this.hp > 0) {
       this.turnSeconds -= dt;
       if (this.turnSeconds <= 0) this.endTurn('TIME OUT · Turn skipped');
@@ -127,13 +129,14 @@ export class ArtilleryCombat {
   endTurn(label) {
     this.turnLocked = true;
     this.turnSeconds = 60;
+    this.turnTransition = 2.5;
     this.message.textContent = label;
     this.updateHud();
   }
 
   updateHud() {
     if (this.hpLabel) this.hpLabel.textContent = 'HP ' + this.hp + '/100';
-    if (this.turnLabel) this.turnLabel.textContent = this.turnLocked ? 'TURN RESOLVING' : 'TURN ' + Math.ceil(this.turnSeconds) + 's';
+    if (this.turnLabel) this.turnLabel.textContent = this.turnTransition > 0 ? 'NEXT TURN…' : this.turnLocked ? 'SHOT IN FLIGHT' : 'TURN ' + Math.ceil(this.turnSeconds) + 's';
     const e = document.getElementById('elevation-value');
     const p = document.getElementById('power-value');
     if (e) e.textContent = this.elevation + '°';

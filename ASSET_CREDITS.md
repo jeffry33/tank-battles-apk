@@ -1,6 +1,16 @@
 # Third-party asset credits
 
-No third-party production asset has been integrated into the runtime yet.
+## Original project assets
+
+The following original lightweight SVG texture maps are authored for TANK BATTLE and do not contain third-party source material:
+
+- `public/assets/textures/snow-albedo.svg` — original tiled snow color texture.
+- `public/assets/textures/snow-normal.svg` — original procedural snow normal-style texture.
+- `public/assets/textures/ice-albedo.svg` — original frozen river color texture.
+
+These are first-pass stylized surface assets, not scanned photorealistic PBR materials. They are included in the runtime and loaded by `src/frozen-river.js`.
+
+No third-party production 3D model has been integrated yet.
 
 When adding an asset, record:
 - Asset name:

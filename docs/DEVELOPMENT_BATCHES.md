@@ -76,6 +76,20 @@ This file tracks code changes separately from features that still require end-to
 - Replace these first-pass authored textures with verified free CC0 scanned PBR materials when binary asset download and inspection are completed.
 - Integrate a production tank GLB and modular environment models; no external 3D model has been integrated yet.
 
+## Batch 8 — Authoritative special-weapon behavior (in progress)
+
+**Implemented in source**
+- Guided missiles now select the nearest living enemy that is valid under the match's friendly-fire rules and steer toward that target on the server.
+- Cluster bombs now resolve a central blast plus four offset submunition blasts; damage is aggregated per target and object before the turn advances.
+- Shot result metadata reports whether guidance was active and how many submunitions were resolved.
+- The online guided-missile visual now travels to the server-reported impact point instead of showing an unrelated straight ballistic arc.
+- Added server tests for guided target acquisition and cluster submunition count.
+
+**Still needs implementation / validation**
+- Run the updated server test suite and Android build.
+- Tune homing turn rate, lock-on range, cluster spread and damage with actual multiplayer playtests.
+- Add distinct missile/cluster VFX, audio, collision refinement and balance safeguards.
+
 ## Production art and remaining game systems
 
 - No production-grade external tank or environment asset is confirmed integrated. The free-only asset policy remains in force.

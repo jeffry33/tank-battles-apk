@@ -17,6 +17,7 @@ export class MatchState {
     this.turnDeadline = 0;
     this.status = 'waiting';
     this.winner = null;
+    this.hostId = null;
   }
 
   addPlayer(id, displayName = 'Commander') {
@@ -28,6 +29,7 @@ export class MatchState {
       { x: -30, z: -30 }, { x: 30, z: -30 },
       { x: -30, z: 30 }, { x: 30, z: 30 }
     ][this.players.size];
+    if (!this.hostId) this.hostId = id;
     this.players.set(id, {
       id, displayName: String(displayName).slice(0, 20), team,
       hp: 100, alive: true, landed: false,
@@ -46,7 +48,8 @@ export class MatchState {
     return this.snapshot();
   }
 
-  beginDeployment(now = Date.now()) {
+  beginDeployment(requesterId, now = Date.now()) {
+    if (requesterId !== this.hostId) throw new Error('Only the room host can start the match');
     if (this.players.size < 2) throw new Error('At least two players are required');
     this.status = 'deploying';
     this.turnDeadline = now + 30000;
@@ -206,7 +209,7 @@ export class MatchState {
 
   snapshot() {
     return {
-      mode: this.mode, status: this.status, currentPlayerId: this.currentPlayerId(),
+      mode: this.mode, status: this.status, hostId: this.hostId, currentPlayerId: this.currentPlayerId(),
       turnDeadline: this.turnDeadline, winner: this.winner,
       players: [...this.players.values()].map(p => ({ ...p }))
     };

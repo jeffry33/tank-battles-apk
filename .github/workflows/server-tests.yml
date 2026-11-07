@@ -1,4 +1,8 @@
 name: Server tests
+concurrency:
+  group: tank-battle-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 on:
   push:
     branches: [main, feature/full-game-development]
